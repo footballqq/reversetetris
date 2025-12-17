@@ -93,13 +93,23 @@ export class InputManager {
     private handlePointerDown(x: number, y: number) {
         const layout = this.renderer.layout;
 
+        // Debug log
+        console.log('Click:', { x, y });
+        console.log('Layout:', {
+            selectionX: layout.selectionX,
+            selectionY: layout.selectionY,
+            selectionHeight: layout.selectionHeight,
+            gridWidth: layout.gridWidth,
+            slotWidth: layout.slotWidth
+        });
+
         // Check Selection Area
         if (y >= layout.selectionY && y <= layout.selectionY + layout.selectionHeight &&
             x >= layout.selectionX && x <= layout.selectionX + layout.gridWidth) {
 
             // Determine index
-            // Assuming 3 slots
             const index = Math.floor((x - layout.selectionX) / layout.slotWidth);
+            console.log('Hit selection! Index:', index);
             if (index >= 0 && index < 3) {
                 this.emit('selectPiece', index);
             }

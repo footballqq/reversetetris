@@ -29,11 +29,13 @@ export class Renderer {
     constructor(canvas: HTMLCanvasElement) {
         this.canvas = canvas;
         this.ctx = canvas.getContext('2d')!;
-        this.height = canvas.height;
         this.animator = new Animator();
 
         // Initial setup
         this.handleResize();
+
+        // Listen to window resize
+        window.addEventListener('resize', () => this.handleResize());
     }
 
     private handleResize() {
@@ -61,46 +63,54 @@ export class Renderer {
         const isPortrait = this.height > this.width;
         this.layout.isPortrait = isPortrait;
 
-        // Use safe margins
-        const safeWidth = this.width - 40;
-        const safeHeight = this.height - 140; // Top/Bottom bars
-
-        // Calculate max possible cell size
-        const maxCellH = Math.floor(safeHeight / rows);
-        const maxCellW = Math.floor(safeWidth / cols);
-
-        // Clamp
-        let cell = Math.min(maxCellH, maxCellW);
-        cell = Math.min(cell, 40); // Max size on huge screens
-        cell = Math.max(cell, 15); // Minimum size
-
-        this.layout.cellSize = cell;
-        this.layout.gridWidth = cols * cell;
-        this.layout.gridHeight = rows * cell;
-
-        // Center Grid
-        this.layout.gridX = Math.floor((this.width - this.layout.gridWidth) / 2);
+        // Selection area height
+        this.layout.selectionHeight = 70;
 
         if (isPortrait) {
-            // Portrait: Candidates Top (Fixed Y), Grid Middle
-            this.layout.selectionY = 40;
-            // Center Grid Vertically in remaining space? Or just below selection
-            // Selection ~80px height
-            this.layout.gridY = 140;
+            // Portrait: Candidates at very top, Grid below
+            this.layout.selectionY = 10;
+            const gridStartY = this.layout.selectionY + this.layout.selectionHeight + 10; // 10 + 70 + 10 = 90
+
+            // Available height for grid (leave 50px at bottom for HUD)
+            const availableHeight = this.height - gridStartY - 60;
+            const availableWidth = this.width - 20; // 10px margin each side
+
+            // Calculate cell size
+            const maxCellH = Math.floor(availableHeight / rows);
+            const maxCellW = Math.floor(availableWidth / cols);
+
+            let cell = Math.min(maxCellH, maxCellW);
+            cell = Math.min(cell, 35);
+            cell = Math.max(cell, 12);
+
+            this.layout.cellSize = cell;
+            this.layout.gridWidth = cols * cell;
+            this.layout.gridHeight = rows * cell;
+            this.layout.gridX = Math.floor((this.width - this.layout.gridWidth) / 2);
+            this.layout.gridY = gridStartY;
         } else {
-            // Landscape: Candidates Top, Grid Centered Vertically
-            this.layout.selectionY = 20;
-            const availableH = this.height;
-            this.layout.gridY = Math.floor((availableH - this.layout.gridHeight) / 2);
-            // Ensure Grid is below selection if vertical space is tight?
-            // In Landscape, usually side-by-side HUD, but Selection is Top.
-            // If Grid Y < 100, might overlap selection.
-            if (this.layout.gridY < 110) this.layout.gridY = 110;
+            // Landscape: More space
+            this.layout.selectionY = 15;
+
+            const safeWidth = this.width - 200; // Leave space for HUD on right
+            const safeHeight = this.height - 130;
+
+            const maxCellH = Math.floor(safeHeight / rows);
+            const maxCellW = Math.floor(safeWidth / cols);
+
+            let cell = Math.min(maxCellH, maxCellW);
+            cell = Math.min(cell, 30);
+            cell = Math.max(cell, 15);
+
+            this.layout.cellSize = cell;
+            this.layout.gridWidth = cols * cell;
+            this.layout.gridHeight = rows * cell;
+            this.layout.gridX = Math.floor((this.width - this.layout.gridWidth) / 2) - 60; // Shift left for HUD
+            this.layout.gridY = 110;
         }
 
         // Selection Area Matches Grid Width
         this.layout.selectionX = this.layout.gridX;
-        this.layout.selectionHeight = 80;
         this.layout.slotWidth = this.layout.gridWidth / 3;
     }
 
