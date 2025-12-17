@@ -185,7 +185,8 @@ export class AudioManager {
         const beatDuration = 60 / bpm; // ~0.46s
         const now = this.ctx.currentTime;
 
-        // 1. Bass Line
+        // 1. Bass Line (Disabled per user request)
+        /*
         const bassNotes = [55, 55, 73, 55, 55, 55, 73, 82]; // A1...
         bassNotes.forEach((freq, i) => {
             if (!this.ctx || !this.bgmGain) return;
@@ -211,6 +212,7 @@ export class AudioManager {
 
             this.bgmNodes.push({ osc, gain });
         });
+        */
 
         // 2. Chords (Pads)
         const chordNotes = [220, 277, 330]; // A3, C#4, E4 (A Major)

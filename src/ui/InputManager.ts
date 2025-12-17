@@ -7,12 +7,7 @@ export class InputManager {
 
     // UI Layout Constants (Must match Renderer)
     // Ideally these come from a shared config or injected config
-    private readonly UI_OFFSET_X = 400;
-    private readonly UI_OFFSET_Y = 50;
-    private readonly PIECE_BOX_WIDTH = 100;
-    private readonly PIECE_BOX_HEIGHT = 80;
-    private readonly PIECE_BOX_GAP = 20;
-
+    // Layout constants are now local to detection logic or could be shared
     constructor(canvas: HTMLCanvasElement) {
         this.canvas = canvas;
         this.setupKeyboardListeners();
@@ -97,49 +92,47 @@ export class InputManager {
     }
 
     private handlePointerDown(x: number, y: number) {
-        // Check Piece Selection Areas (Bottom)
-        // Y: 530, Width: 120, Height: 80, Gap: 10, StartX: 220
-        const PIECE_BOX_Y = 530;
-        const PIECE_BOX_SIZE = 120; // Width
-        const PIECE_BOX_HEIGHT = 80;
-        const PIECE_START_X = 220;
-        const PIECE_GAP = 10;
+        // Redesigned Top Layout (Renderer.ts)
+        // GRID_OFFSET_X = 280
+        // GRID_WIDTH = 240
+        // SELECTION_Y = 20
+        // SELECTION_HEIGHT = 80
+        // 3 slots
+        const GRID_OFFSET_X = 280;
+        const GRID_WIDTH = 240;
+        const SELECTION_Y = 20;
+        const SELECTION_HEIGHT = 80;
+        const slotWidth = GRID_WIDTH / 3;
 
-        for (let i = 0; i < 3; i++) {
-            const bx = PIECE_START_X + i * (PIECE_BOX_SIZE + PIECE_GAP);
-            const by = PIECE_BOX_Y;
+        // Check if click is in selection bar
+        if (y >= SELECTION_Y && y <= SELECTION_Y + SELECTION_HEIGHT &&
+            x >= GRID_OFFSET_X && x <= GRID_OFFSET_X + GRID_WIDTH) {
 
-            if (x >= bx && x <= bx + PIECE_BOX_SIZE &&
-                y >= by && y <= by + PIECE_BOX_HEIGHT) {
-                this.emit('selectPiece', i);
-                return;
+            // Determine index
+            const index = Math.floor((x - GRID_OFFSET_X) / slotWidth);
+            if (index >= 0 && index < 3) {
+                this.emit('selectPiece', index);
             }
         }
-
-        // Mobile tap anywhere else to maybe pause?
-        // Or if game over restart?
-        // For now just pieces.
     }
 
     private handlePointerMove(x: number, y: number) {
-        // Hover effects?
-        // Emit 'hover' if inside a box?
-        let hoveredIndex = -1;
-        for (let i = 0; i < 3; i++) {
-            const bx = this.UI_OFFSET_X;
-            const by = this.UI_OFFSET_Y + 60 + i * (this.PIECE_BOX_HEIGHT + this.PIECE_BOX_GAP);
+        // Updated hover check
+        const GRID_OFFSET_X = 280;
+        const GRID_WIDTH = 240;
+        const SELECTION_Y = 20;
+        const SELECTION_HEIGHT = 80;
+        const slotWidth = GRID_WIDTH / 3;
 
-            if (x >= bx && x <= bx + this.PIECE_BOX_WIDTH &&
-                y >= by && y <= by + this.PIECE_BOX_HEIGHT) {
-                hoveredIndex = i;
-                break;
+        if (y >= SELECTION_Y && y <= SELECTION_Y + SELECTION_HEIGHT &&
+            x >= GRID_OFFSET_X && x <= GRID_OFFSET_X + GRID_WIDTH) {
+
+            const index = Math.floor((x - GRID_OFFSET_X) / slotWidth);
+            if (index >= 0 && index < 3) {
+                this.emit('hoverPiece', index);
+                return;
             }
         }
-
-        if (hoveredIndex !== -1) {
-            this.emit('hoverPiece', hoveredIndex);
-        } else {
-            this.emit('hoverPiece', -1);
-        }
+        this.emit('hoverPiece', -1);
     }
 }

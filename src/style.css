@@ -17,10 +17,19 @@ body {
 }
 
 #app {
-  width: 100%;
+  width: 100vw;
   height: 100vh;
   position: relative;
   overflow: hidden;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: #000;
+}
+
+/* Hide HTML HUD since Renderer draws it */
+#hud-overlay {
+  display: none !important;
 }
 
 #audio-btn {

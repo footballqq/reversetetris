@@ -74,11 +74,50 @@ export const PIECE_SHAPES: Record<PieceType, number[][][]> = {
     // L: Orange
     // . . L
     // L L L
+    // L: Orange
+    // . . L
+    // L L L
     [PieceType.L]: [
         [[1, -1], [-1, 0], [0, 0], [1, 0]], // 0
         [[0, -1], [0, 0], [0, 1], [1, 1]], // 90
         [[-1, 0], [0, 0], [1, 0], [-1, 1]], // 180
         [[-1, -1], [0, -1], [0, 0], [0, 1]] // 270
+    ],
+
+    // --- Special Pieces (Gold) ---
+
+    // Long I (6 blocks)
+    // . . . . . .
+    // X X X X X X
+    // Pivot: index 2 or 3. Let's say index 2 (third block).
+    // [-2,0], [-1,0], [0,0], [1,0], [2,0], [3,0]
+    [PieceType.LONG_I]: [
+        [[-2, 0], [-1, 0], [0, 0], [1, 0], [2, 0], [3, 0]], // Horiz
+        [[0, -2], [0, -1], [0, 0], [0, 1], [0, 2], [0, 3]], // Vert
+        [[-2, 0], [-1, 0], [0, 0], [1, 0], [2, 0], [3, 0]], // Horiz
+        [[0, -2], [0, -1], [0, 0], [0, 1], [0, 2], [0, 3]]  // Vert
+    ],
+
+    // Cross (+)
+    // . T .
+    // T T T
+    // . T .
+    [PieceType.CROSS]: [
+        [[0, -1], [-1, 0], [0, 0], [1, 0], [0, 1]], // +
+        [[0, -1], [-1, 0], [0, 0], [1, 0], [0, 1]],
+        [[0, -1], [-1, 0], [0, 0], [1, 0], [0, 1]],
+        [[0, -1], [-1, 0], [0, 0], [1, 0], [0, 1]]
+    ],
+
+    // Hollow Square (3x3 ring)
+    // X X X
+    // X . X
+    // X X X
+    [PieceType.SQUARE_HOLLOW]: [
+        [[-1, -1], [0, -1], [1, -1], [-1, 0], [1, 0], [-1, 1], [0, 1], [1, 1]], // 0
+        [[-1, -1], [0, -1], [1, -1], [-1, 0], [1, 0], [-1, 1], [0, 1], [1, 1]],
+        [[-1, -1], [0, -1], [1, -1], [-1, 0], [1, 0], [-1, 1], [0, 1], [1, 1]],
+        [[-1, -1], [0, -1], [1, -1], [-1, 0], [1, 0], [-1, 1], [0, 1], [1, 1]]
     ]
 };
 
@@ -89,7 +128,11 @@ export const PIECE_COLORS: Record<PieceType, string> = {
     [PieceType.S]: '#00f000',
     [PieceType.Z]: '#f00000',
     [PieceType.J]: '#0000f0',
-    [PieceType.L]: '#f0a000'
+    [PieceType.L]: '#f0a000',
+    // Special
+    [PieceType.LONG_I]: '#FFD700', // Gold
+    [PieceType.CROSS]: '#FFD700',
+    [PieceType.SQUARE_HOLLOW]: '#FFD700'
 };
 
 // Map PieceType to safe integer IDs (start at 1)
@@ -100,7 +143,11 @@ export const PIECE_TYPE_TO_ID: Record<PieceType, number> = {
     [PieceType.S]: 4,
     [PieceType.Z]: 5,
     [PieceType.J]: 6,
-    [PieceType.L]: 7
+    [PieceType.L]: 7,
+    // Special
+    [PieceType.LONG_I]: 8,
+    [PieceType.CROSS]: 8, // All Gold map to 8? Or distinct? Distinct for logic?
+    [PieceType.SQUARE_HOLLOW]: 8 // Map all special to 8 for shared color lookup
 };
 
 export const ID_TO_COLOR: Record<number, string> = {
@@ -110,5 +157,6 @@ export const ID_TO_COLOR: Record<number, string> = {
     4: '#00f000',
     5: '#f00000',
     6: '#0000f0',
-    7: '#f0a000'
+    7: '#f0a000',
+    8: '#FFD700' // Gold
 };

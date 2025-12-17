@@ -17,6 +17,13 @@ export class PieceFactory {
 
     // 7-bag randomizer
     public static createRandom(): Piece {
+        // 1% Chance for Special Piece
+        if (Math.random() < 0.01) {
+            const specialTypes = [PieceType.LONG_I, PieceType.CROSS, PieceType.SQUARE_HOLLOW];
+            const randomSpecial = specialTypes[Math.floor(Math.random() * specialTypes.length)];
+            return new Piece(randomSpecial);
+        }
+
         if (this.bag.length === 0) {
             this.refillBag();
         }

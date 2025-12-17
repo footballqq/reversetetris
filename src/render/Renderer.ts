@@ -198,10 +198,24 @@ export class Renderer {
         const size = this.CELL_SIZE - 2;
         this.ctx.fillRect(x + 1, y + 1, size, size);
 
-        // Bevel/Shine effect
+        // Standard Bevel
         if (!isGhost) {
             this.ctx.fillStyle = 'rgba(255,255,255,0.3)';
             this.ctx.fillRect(x + 1, y + 1, size, size / 3);
+        }
+
+        // Gold Shine Effect
+        if (!isGhost && color === '#FFD700') {
+            const time = performance.now() / 500;
+            const alpha = (Math.sin(time) + 1) / 2 * 0.4 + 0.1; // 0.1 to 0.5 oscillating
+
+            this.ctx.save();
+            this.ctx.strokeStyle = `rgba(255, 255, 200, ${alpha})`;
+            this.ctx.lineWidth = 2;
+            this.ctx.shadowBlur = 10;
+            this.ctx.shadowColor = '#FFD700';
+            this.ctx.strokeRect(x + 2, y + 2, size - 2, size - 2);
+            this.ctx.restore();
         }
     }
 
