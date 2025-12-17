@@ -77,6 +77,22 @@ export class GameEngine {
         }
     }
 
+    public setDifficulty(difficulty: 'EASY' | 'NORMAL' | 'HARD') {
+        this.data.aiDifficulty = AI_DIFFICULTY[difficulty];
+        // Also adjust AI speed based on difficulty
+        switch (difficulty) {
+            case 'EASY':
+                this.currentAiSpeed = 800; // Slower
+                break;
+            case 'NORMAL':
+                this.currentAiSpeed = 500;
+                break;
+            case 'HARD':
+                this.currentAiSpeed = 300; // Faster
+                break;
+        }
+    }
+
     public start(levelConfig?: LevelConfig) {
         if (levelConfig) {
             this.loadLevel(levelConfig);

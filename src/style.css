@@ -159,3 +159,64 @@ canvas {
   max-height: 100vh;
   object-fit: contain;
 }
+
+/* How to Play */
+.howto-content {
+  text-align: left;
+  max-width: 500px;
+  padding: 20px;
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 10px;
+  margin-bottom: 20px;
+}
+
+.howto-content ul {
+  margin: 10px 0;
+  padding-left: 25px;
+}
+
+.howto-content li {
+  margin: 8px 0;
+}
+
+.howto-content p {
+  margin: 10px 0;
+}
+
+/* Settings */
+.settings-content {
+  text-align: left;
+  padding: 20px;
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 10px;
+  margin-bottom: 20px;
+  min-width: 300px;
+}
+
+.setting-item {
+  margin: 15px 0;
+}
+
+.setting-item label {
+  display: block;
+  margin-bottom: 10px;
+  font-size: 1.2rem;
+}
+
+.difficulty-btns {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+
+.diff-btn {
+  min-width: 80px;
+  padding: 10px 15px;
+  font-size: 1rem;
+}
+
+.diff-btn.active {
+  background: var(--primary-color);
+  color: #000;
+  border-color: var(--primary-color);
+}

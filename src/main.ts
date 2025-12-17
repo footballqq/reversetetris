@@ -51,8 +51,12 @@ audioBtn.addEventListener('click', (e) => {
 
 // --- UI Event Bindings ---
 
+// Difficulty State (EASY, NORMAL, HARD)
+let currentDifficulty: 'EASY' | 'NORMAL' | 'HARD' = 'NORMAL';
+
 ui.on('btn-start', 'click', () => {
   ui.show('game');
+  engine.setDifficulty(currentDifficulty);
   engine.start(); // Defaults to Level 1
   audio.playSelect();
 });
@@ -60,6 +64,7 @@ ui.on('btn-start', 'click', () => {
 ui.on('btn-levels', 'click', () => {
   ui.generateLevelGrid(20, (id) => {
     ui.show('game');
+    engine.setDifficulty(currentDifficulty);
     engine.loadLevel(LevelGenerator.generateLevel(id));
     audio.playSelect();
   });
@@ -67,8 +72,48 @@ ui.on('btn-levels', 'click', () => {
   audio.playSelect();
 });
 
+ui.on('btn-howto', 'click', () => {
+  ui.show('howto');
+  audio.playSelect();
+});
+
+ui.on('btn-back-howto', 'click', () => {
+  ui.show('menu');
+  audio.playSelect();
+});
+
 ui.on('btn-settings', 'click', () => {
-  alert("Settings not implemented yet.");
+  ui.show('settings');
+  audio.playSelect();
+});
+
+ui.on('btn-back-settings', 'click', () => {
+  ui.show('menu');
+  audio.playSelect();
+});
+
+// Difficulty buttons
+const updateDifficultyUI = () => {
+  document.querySelectorAll('.diff-btn').forEach(btn => btn.classList.remove('active'));
+  const activeBtn = document.getElementById(`diff-${currentDifficulty.toLowerCase()}`);
+  if (activeBtn) activeBtn.classList.add('active');
+};
+
+ui.on('diff-easy', 'click', () => {
+  currentDifficulty = 'EASY';
+  updateDifficultyUI();
+  audio.playSelect();
+});
+
+ui.on('diff-normal', 'click', () => {
+  currentDifficulty = 'NORMAL';
+  updateDifficultyUI();
+  audio.playSelect();
+});
+
+ui.on('diff-hard', 'click', () => {
+  currentDifficulty = 'HARD';
+  updateDifficultyUI();
   audio.playSelect();
 });
 

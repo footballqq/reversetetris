@@ -16,9 +16,44 @@ export class UIManager {
             <div class="menu-buttons">
                 <button id="btn-start" class="btn primary">START GAME</button>
                 <button id="btn-levels" class="btn">LEVELS</button>
+                <button id="btn-howto" class="btn">HOW TO PLAY</button>
                 <button id="btn-settings" class="btn">SETTINGS</button>
             </div>
             <p class="footer">Feed the AI until it bursts.</p>
+        `);
+
+        // How to Play
+        this.overlays.howto = this.createOverlay('howto-overlay', `
+            <h2>游戏说明</h2>
+            <div class="howto-content">
+                <p><strong>目标：</strong>让电脑AI的方块堆积到顶部，使其"顶飞"而输掉游戏。</p>
+                <p><strong>玩法：</strong></p>
+                <ul>
+                    <li>每回合从上方3个候选方块中选择1个</li>
+                    <li>点击方块或按数字键 1/2/3 选择</li>
+                    <li>电脑AI会自动放置你选的方块</li>
+                    <li>选择能让AI难以消行的方块</li>
+                    <li>累计消除的行数达标即过关</li>
+                </ul>
+                <p><strong>技巧：</strong>选择长条(I)会帮AI消行，尽量选择S/Z/T等难放的形状！</p>
+            </div>
+            <button id="btn-back-howto" class="btn">BACK</button>
+        `);
+
+        // Settings
+        this.overlays.settings = this.createOverlay('settings-overlay', `
+            <h2>设置</h2>
+            <div class="settings-content">
+                <div class="setting-item">
+                    <label>电脑难度</label>
+                    <div class="difficulty-btns">
+                        <button id="diff-easy" class="btn diff-btn">简单</button>
+                        <button id="diff-normal" class="btn diff-btn active">普通</button>
+                        <button id="diff-hard" class="btn diff-btn">困难</button>
+                    </div>
+                </div>
+            </div>
+            <button id="btn-back-settings" class="btn">BACK</button>
         `);
 
         // Level Select (Simple Placeholder)
@@ -55,9 +90,6 @@ export class UIManager {
         `);
 
         // HUD (Always visible during game, but we toggle visibility)
-        // HUD is actually overlays on top of canvas.
-        // We'll manage HUD visibility separately or just use 'game' state?
-        // Let's create a HUD cleaner in HTML
         const hud = document.createElement('div');
         hud.id = 'hud-overlay';
         hud.className = 'overlay hidden';
