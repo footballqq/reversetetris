@@ -38,28 +38,70 @@ export class Renderer {
 
     private handleResize() {
         const dpr = window.devicePixelRatio || 1;
-        // Logical size
-        const logicalWidth = 800;
-        const logicalHeight = 600;
+
+        // Use full window size
+        this.width = window.innerWidth;
+        this.height = window.innerHeight;
 
         // Set physical size
-        this.canvas.width = logicalWidth * dpr;
-        this.canvas.height = logicalHeight * dpr;
+        this.canvas.width = this.width * dpr;
+        this.canvas.height = this.height * dpr;
 
-        // Scale context to match logical coordinate system
+        // Reset transform and scale to match logical coordinate system (CSS pixels)
+        this.ctx.setTransform(1, 0, 0, 1, 0, 0);
         this.ctx.scale(dpr, dpr);
 
-        // Update internal dimensions to logical size
-        this.width = logicalWidth;
-        this.height = logicalHeight;
+        this.recalculateLayout();
+    }
 
-        // Note: CSS max-width/max-height handles visual fitting (Letterboxing/Scaling)
-        // verify css style width/height match logical if not set by flex? 
-        // Actually CSS 'max-width: 100%' works best if we don't force style.width, 
-        // or set style.width to 100%?
-        // With object-fit: contain, we typically want the element to fill the container 
-        // but keep aspect ratio.
-        // If we set canvas width/height attributes, browser uses them as aspect ratio.
+    private recalculateLayout() {
+        const cols = Grid.WIDTH; // 10
+        const rows = Grid.TOTAL_ROWS - this.VISIBLE_START_ROW; // 20
+
+        const isPortrait = this.height > this.width;
+        this.layout.isPortrait = isPortrait;
+
+        // Use safe margins
+        const safeWidth = this.width - 40;
+        const safeHeight = this.height - 140; // Top/Bottom bars
+
+        // Calculate max possible cell size
+        const maxCellH = Math.floor(safeHeight / rows);
+        const maxCellW = Math.floor(safeWidth / cols);
+
+        // Clamp
+        let cell = Math.min(maxCellH, maxCellW);
+        cell = Math.min(cell, 40); // Max size on huge screens
+        cell = Math.max(cell, 15); // Minimum size
+
+        this.layout.cellSize = cell;
+        this.layout.gridWidth = cols * cell;
+        this.layout.gridHeight = rows * cell;
+
+        // Center Grid
+        this.layout.gridX = Math.floor((this.width - this.layout.gridWidth) / 2);
+
+        if (isPortrait) {
+            // Portrait: Candidates Top (Fixed Y), Grid Middle
+            this.layout.selectionY = 40;
+            // Center Grid Vertically in remaining space? Or just below selection
+            // Selection ~80px height
+            this.layout.gridY = 140;
+        } else {
+            // Landscape: Candidates Top, Grid Centered Vertically
+            this.layout.selectionY = 20;
+            const availableH = this.height;
+            this.layout.gridY = Math.floor((availableH - this.layout.gridHeight) / 2);
+            // Ensure Grid is below selection if vertical space is tight?
+            // In Landscape, usually side-by-side HUD, but Selection is Top.
+            // If Grid Y < 100, might overlap selection.
+            if (this.layout.gridY < 110) this.layout.gridY = 110;
+        }
+
+        // Selection Area Matches Grid Width
+        this.layout.selectionX = this.layout.gridX;
+        this.layout.selectionHeight = 80;
+        this.layout.slotWidth = this.layout.gridWidth / 3;
     }
 
     public clear() {
