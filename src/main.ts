@@ -12,6 +12,7 @@ const app = document.querySelector<HTMLDivElement>('#app')!;
 app.innerHTML = `
   <div style="position: relative; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center;">
     <canvas id="game-canvas" width="800" height="600" style="background: #000; border: 2px solid #333;"></canvas>
+    <button id="audio-btn">🔇</button>
   </div>
 `;
 

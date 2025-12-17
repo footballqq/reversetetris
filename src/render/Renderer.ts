@@ -11,21 +11,18 @@ export class Renderer {
     private height: number;
     public animator: Animator;
 
-    private readonly CELL_SIZE = 25;
-    private readonly GRID_OFFSET_X = 275; // Centered: (800 - 250) / 2
-    private readonly GRID_OFFSET_Y = 20;  // Near top
+    private readonly CELL_SIZE = 24;
+    private readonly GRID_OFFSET_X = 280; // (800 - 240) / 2
+    private readonly GRID_OFFSET_Y = 110;
+
+    // Selection Area
+    private readonly SELECTION_Y = 20;
+    private readonly SELECTION_HEIGHT = 80;
 
     // Derived
     private get GRID_WIDTH_PX() { return Grid.WIDTH * this.CELL_SIZE; }
     private get GRID_HEIGHT_PX() { return (Grid.TOTAL_ROWS - this.VISIBLE_START_ROW) * this.CELL_SIZE; }
     private readonly VISIBLE_START_ROW = 2; // Rows 0-1 are hidden buffer
-
-    // UI Layout
-    // Candidate area at BOTTOM
-    private readonly PIECE_BOX_Y = 530;
-    private readonly PIECE_BOX_SIZE = 120; // Width allocated per piece
-    private readonly PIECE_START_X = 220; // Center the 3 pieces group: 800/2 - (3*120)/2 = 400 - 180 = 220
-    private readonly PIECE_GAP = 10;
 
     constructor(canvas: HTMLCanvasElement) {
         this.canvas = canvas;
@@ -209,71 +206,80 @@ export class Renderer {
     }
 
     public drawPieceSelector(pieces: Piece[], selectedIndex: number) {
-        // Draw bottom area background
-        // Optional: draw background for piece area
-        // this.ctx.fillStyle = '#222';
-        // this.ctx.fillRect(0, this.PIECE_BOX_Y - 20, 800, 150);
+        // Draw Container Box (White Border) same width as Grid
+        this.ctx.strokeStyle = '#fff';
+        this.ctx.lineWidth = 2;
+        this.ctx.strokeRect(
+            this.GRID_OFFSET_X - 2,
+            this.SELECTION_Y - 2,
+            this.GRID_WIDTH_PX + 4,
+            this.SELECTION_HEIGHT + 4
+        );
+
+        // Label "NEXT"
+        this.ctx.fillStyle = '#aaa';
+        this.ctx.font = '12px Arial';
+        this.ctx.textAlign = 'left';
+        this.ctx.fillText("CANDIDATES", this.GRID_OFFSET_X, this.SELECTION_Y - 8);
+
+        // Draw 3 Pieces distributed
+        const slotWidth = this.GRID_WIDTH_PX / 3;
 
         pieces.forEach((piece, index) => {
-            const isSelected = index === selectedIndex;
-
-            const offsetX = this.PIECE_START_X + index * (this.PIECE_BOX_SIZE + this.PIECE_GAP);
-            const offsetY = this.PIECE_BOX_Y;
+            const cx = this.GRID_OFFSET_X + index * slotWidth + slotWidth / 2;
+            const cy = this.SELECTION_Y + this.SELECTION_HEIGHT / 2;
 
             // Highlight selected
-            if (isSelected) {
-                this.ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
-                this.ctx.fillRect(offsetX, offsetY, this.PIECE_BOX_SIZE, 80); // Height approx
-                this.ctx.strokeStyle = '#fff';
-                this.ctx.lineWidth = 2;
-                this.ctx.strokeRect(offsetX, offsetY, this.PIECE_BOX_SIZE, 80);
-            } else {
-                // Dim non-selected?
-                // this.ctx.fillStyle = 'rgba(0,0,0,0.5)';
-                // this.ctx.fillRect(offsetX, offsetY, 120, 80);
+            if (index === selectedIndex) {
+                this.ctx.fillStyle = 'rgba(255,255,255,0.1)';
+                this.ctx.fillRect(
+                    this.GRID_OFFSET_X + index * slotWidth,
+                    this.SELECTION_Y,
+                    slotWidth,
+                    this.SELECTION_HEIGHT
+                );
             }
 
-            // Draw box border
-            this.ctx.strokeStyle = '#444';
-            this.ctx.lineWidth = 1;
-            this.ctx.strokeRect(offsetX, offsetY, this.PIECE_BOX_SIZE, 80);
-
-            // Draw Piece centered in box
-            // Piece usually 3-4 blocks.
-            // Center is roughly +1.5 blocks?
-            // Let's hardcode center offset (40, 10) relative to box
-            const pieceX = offsetX + 20;
-            const pieceY = offsetY + 10;
-
+            // Draw Piece centered
             const blocks = piece.getBlocks();
             const color = piece.getColor();
 
             for (const block of blocks) {
-                this.drawCell(pieceX + block.x * this.CELL_SIZE, pieceY + block.y * this.CELL_SIZE, color);
+                // block.x * CELL_SIZE is offset from center
+                // Center piece at cx, cy
+                this.drawCell(
+                    cx + block.x * this.CELL_SIZE - this.CELL_SIZE / 2,
+                    cy + block.y * this.CELL_SIZE - this.CELL_SIZE / 2,
+                    color
+                );
             }
 
-            // Draw Key Hint
+            // Key Hint
             this.ctx.fillStyle = '#888';
-            this.ctx.font = '12px Inter';
+            this.ctx.font = '10px Arial';
             this.ctx.textAlign = 'center';
-            this.ctx.fillText(`[${index + 1}]`, offsetX + this.PIECE_BOX_SIZE / 2, offsetY + 95);
+            this.ctx.fillText(`${index + 1}`, cx, this.SELECTION_Y + this.SELECTION_HEIGHT - 5);
         });
     }
 
     public drawUI(score: number, level: number, lines: number) {
-        // Draw HUD on sides (Top area)
+        // Draw HUD on RIGHT side of Grid
+        const startX = this.GRID_OFFSET_X + this.GRID_WIDTH_PX + 20;
+        const startY = this.GRID_OFFSET_Y;
+
         this.ctx.textAlign = 'left';
 
-        // Left side
-        this.drawText(`LEVEL`, 50, 40, 14, '#aaa', 'left');
-        this.drawText(`${level}`, 100, 40, 20, '#fff', 'left');
+        // SCORE
+        this.drawText("SCORE", startX, startY + 20, 14, '#aaa');
+        this.drawText(`${score}`, startX, startY + 50, 24, '#fff');
 
-        this.drawText(`LINES`, 200, 40, 14, '#aaa', 'left'); // Moved right for horizontal layout
-        this.drawText(`${lines}`, 250, 40, 20, '#fff', 'left');
+        // LEVEL
+        this.drawText("LEVEL", startX, startY + 100, 14, '#aaa');
+        this.drawText(`${level}`, startX, startY + 130, 24, '#fff');
 
-        // Right side - Score
-        this.drawText(`SCORE`, 600, 40, 14, '#aaa', 'right');
-        this.drawText(`${score}`, 750, 40, 20, '#fff', 'right');
+        // LINES
+        this.drawText("LINES", startX, startY + 180, 14, '#aaa');
+        this.drawText(`${lines}`, startX, startY + 210, 24, '#fff');
     }
     public drawText(text: string, x: number, y: number, size: number = 30, color: string = '#fff', textAlign: CanvasTextAlign = 'left') {
         this.ctx.fillStyle = color;

@@ -25,3 +25,6 @@
 另外我在想手机上如果放在最上面其实操作有点麻烦。如果你有好的建议可以提出来。
 
 你可以参考：E:\users\kpan\BaiduSyncdisk\program\aigc\reversetetris\src\audio\audio.js 看看背景音乐实现
+
+你能有一定概率出一些奇怪的形状，金色边缘闪闪发光的吗？比如 六格长棍，十字形方块，九宫格方块（中间中空）。
+概率可以是1%。
