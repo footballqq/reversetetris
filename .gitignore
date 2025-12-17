@@ -1,0 +1,15 @@
+/report/
+/logs/
+/output/
+/doc/
+article.json
+failed_packages.txt
+test.txt
+news_scraper.log
+difftemp.py
+emok.py
+app.log
+reddit_20241230.log
+__pycache__/llm_api.cpython-312.pyc
+*.pyc
+dingconfig.ini

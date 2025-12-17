@@ -9,8 +9,8 @@
 ## 任务清单
 
 ### 5.1 评分系统设计
-- [ ] 创建 `src/ai/AIController.ts`
-- [ ] 定义评分权重接口
+- [x] 创建 `src/ai/AIController.ts`
+- [x] 定义评分权重接口
 ```typescript
 interface AIWeights {
   heightWeight: number;      // 总高度惩罚（负值）
@@ -21,13 +21,13 @@ interface AIWeights {
 ```
 
 ### 5.2 核心算法
-- [ ] `findBestMove(grid, piece)`: 返回最佳落点 `{ x, rotation, score }`
-- [ ] 遍历所有可能的 (x, rotation) 组合
-- [ ] 模拟放置后计算评分
-- [ ] 返回得分最高的位置
+- [x] `findBestMove(grid, piece)`: 返回最佳落点 `{ x, rotation, score }`
+- [x] 遍历所有可能的 (x, rotation) 组合
+- [x] 模拟放置后计算评分
+- [x] 返回得分最高的位置
 
 ### 5.3 评分函数
-- [ ] `evaluateGrid(grid)`: 对网格状态打分
+- [x] `evaluateGrid(grid)`: 对网格状态打分
   - 计算聚合高度（所有列高度之和）
   - 计算完整行数
   - 计算空洞数量
