@@ -11,16 +11,21 @@ export class Renderer {
     private height: number;
     public animator: Animator;
 
-    private readonly CELL_SIZE = 30;
-    private readonly GRID_OFFSET_X = 50;
-    private readonly GRID_OFFSET_Y = 50;
-    private readonly VISIBLE_START_ROW = 2; // Rows 0-1 are hidden
-    private readonly GRID_WIDTH_PX = 10 * this.CELL_SIZE;
-    private readonly GRID_HEIGHT_PX = 20 * this.CELL_SIZE;
+    private readonly CELL_SIZE = 25;
+    private readonly GRID_OFFSET_X = 275; // Centered: (800 - 250) / 2
+    private readonly GRID_OFFSET_Y = 20;  // Near top
+
+    // Derived
+    private get GRID_WIDTH_PX() { return Grid.WIDTH * this.CELL_SIZE; }
+    private get GRID_HEIGHT_PX() { return (Grid.TOTAL_ROWS - this.VISIBLE_START_ROW) * this.CELL_SIZE; }
+    private readonly VISIBLE_START_ROW = 2; // Rows 0-1 are hidden buffer
 
     // UI Layout
-    private readonly UI_OFFSET_X = 400;
-    private readonly UI_OFFSET_Y = 50;
+    // Candidate area at BOTTOM
+    private readonly PIECE_BOX_Y = 530;
+    private readonly PIECE_BOX_SIZE = 120; // Width allocated per piece
+    private readonly PIECE_START_X = 220; // Center the 3 pieces group: 800/2 - (3*120)/2 = 400 - 180 = 220
+    private readonly PIECE_GAP = 10;
 
     constructor(canvas: HTMLCanvasElement) {
         this.canvas = canvas;
@@ -31,7 +36,6 @@ export class Renderer {
 
         // Initial setup
         this.handleResize();
-        window.addEventListener('resize', () => this.handleResize());
     }
 
     private handleResize() {
@@ -63,10 +67,7 @@ export class Renderer {
     public clear() {
         this.ctx.fillStyle = '#1a1a1a'; // Dark background
         this.ctx.fillRect(0, 0, this.width, this.height);
-        this.animator.draw(this.ctx); // Draw particles below UI but above BG? Or on top?
-        // Let's draw particles on top of everything usually.
-        // If we clear here, we wipe previous frame.
-        // We should draw animations AFTER grid/pieces.
+        this.animator.draw(this.ctx);
     }
 
     public update(dt: number) {
@@ -83,9 +84,36 @@ export class Renderer {
         this.ctx.save();
         this.ctx.translate(shake.x, shake.y);
 
-        // Draw Grid Background
+        // 1. Draw Grid Background (Darker area)
+        this.ctx.fillStyle = '#111';
+        this.ctx.fillRect(
+            this.GRID_OFFSET_X,
+            this.GRID_OFFSET_Y,
+            this.GRID_WIDTH_PX,
+            this.GRID_HEIGHT_PX
+        );
+
+        // 2. Draw Faint Grid Lines (Dark Grid)
         this.ctx.strokeStyle = '#333';
         this.ctx.lineWidth = 1;
+        this.ctx.beginPath();
+        // Vertical lines
+        for (let i = 0; i <= Grid.WIDTH; i++) {
+            const x = this.GRID_OFFSET_X + i * this.CELL_SIZE;
+            this.ctx.moveTo(x, this.GRID_OFFSET_Y);
+            this.ctx.lineTo(x, this.GRID_OFFSET_Y + this.GRID_HEIGHT_PX);
+        }
+        // Horizontal lines
+        for (let j = 0; j <= (Grid.TOTAL_ROWS - this.VISIBLE_START_ROW); j++) {
+            const y = this.GRID_OFFSET_Y + j * this.CELL_SIZE;
+            this.ctx.moveTo(this.GRID_OFFSET_X, y);
+            this.ctx.lineTo(this.GRID_OFFSET_X + this.GRID_WIDTH_PX, y);
+        }
+        this.ctx.stroke();
+
+        // 3. Draw Outer Border (Bright)
+        this.ctx.strokeStyle = '#fff';
+        this.ctx.lineWidth = 2;
         this.ctx.strokeRect(
             this.GRID_OFFSET_X - 2,
             this.GRID_OFFSET_Y - 2,
@@ -101,7 +129,11 @@ export class Renderer {
                 const color = ID_TO_COLOR[cell];
 
                 if (cell !== 0 && color) {
-                    this.drawCell(x, y, color);
+                    this.drawCell(
+                        this.GRID_OFFSET_X + x * this.CELL_SIZE,
+                        this.GRID_OFFSET_Y + (y - this.VISIBLE_START_ROW) * this.CELL_SIZE,
+                        color
+                    );
                 } else {
                     // Draw faint grid lines
                     this.ctx.strokeStyle = '#2a2a2a';
@@ -125,12 +157,17 @@ export class Renderer {
         const blocks = piece.getBlocks(rotation);
         const color = piece.getColor();
 
-        for (const block of blocks) {
-            const x = gridX + block.x;
-            const y = gridY + block.y;
+        // Calculate Pixel Position relative to Grid
+        // gridY is logical Y (0-21). Visible starts at 2.
+        // Screen Y = GRID_OFFSET_Y + (gridY - 2) * CELL_SIZE
 
-            // Only draw if visible
-            if (y >= this.VISIBLE_START_ROW) {
+        for (const block of blocks) {
+            const x = this.GRID_OFFSET_X + (gridX + block.x) * this.CELL_SIZE;
+            const y = this.GRID_OFFSET_Y + (gridY + block.y - this.VISIBLE_START_ROW) * this.CELL_SIZE;
+
+            // Only draw if within visible grid area (approx)
+            // Allow drawing slightly above for drop animation?
+            if (gridY + block.y >= this.VISIBLE_START_ROW) {
                 this.drawCell(x, y, color);
             }
         }
@@ -147,10 +184,10 @@ export class Renderer {
         const color = piece.getColor();
 
         for (const block of blocks) {
-            const x = gridX + block.x;
-            const y = gridY + block.y;
+            const x = this.GRID_OFFSET_X + (gridX + block.x) * this.CELL_SIZE;
+            const y = this.GRID_OFFSET_Y + (gridY + block.y - this.VISIBLE_START_ROW) * this.CELL_SIZE;
 
-            if (y >= this.VISIBLE_START_ROW) {
+            if (gridY + block.y >= this.VISIBLE_START_ROW) {
                 this.drawCell(x, y, color, true);
             }
         }
@@ -159,85 +196,89 @@ export class Renderer {
     }
 
     private drawCell(x: number, y: number, color: string, isGhost = false) {
-        const screenX = this.GRID_OFFSET_X + x * this.CELL_SIZE;
-        const screenY = this.GRID_OFFSET_Y + (y - this.VISIBLE_START_ROW) * this.CELL_SIZE;
-
         this.ctx.fillStyle = color;
-        this.ctx.fillRect(screenX + 1, screenY + 1, this.CELL_SIZE - 2, this.CELL_SIZE - 2);
+        // Inner padding for block look
+        const size = this.CELL_SIZE - 2;
+        this.ctx.fillRect(x + 1, y + 1, size, size);
 
+        // Bevel/Shine effect
         if (!isGhost) {
-            // Simple 3D effect / Highlight
-            this.ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
-            this.ctx.fillRect(screenX + 1, screenY + 1, this.CELL_SIZE - 2, 4);
-
-            this.ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
-            this.ctx.fillRect(screenX + 1, screenY + this.CELL_SIZE - 4 - 1, this.CELL_SIZE - 2, 4);
+            this.ctx.fillStyle = 'rgba(255,255,255,0.3)';
+            this.ctx.fillRect(x + 1, y + 1, size, size / 3);
         }
     }
 
     public drawPieceSelector(pieces: Piece[], selectedIndex: number) {
-        // Draw "Next Pieces" area / Selection area
-        this.ctx.fillStyle = '#fff';
-        this.ctx.font = '20px Arial';
-        this.ctx.fillText("Select Piece:", this.UI_OFFSET_X, this.UI_OFFSET_Y);
-        this.ctx.font = '14px Arial';
-        this.ctx.fillText("(Press 1, 2, 3)", this.UI_OFFSET_X, this.UI_OFFSET_Y + 25);
+        // Draw bottom area background
+        // Optional: draw background for piece area
+        // this.ctx.fillStyle = '#222';
+        // this.ctx.fillRect(0, this.PIECE_BOX_Y - 20, 800, 150);
 
         pieces.forEach((piece, index) => {
             const isSelected = index === selectedIndex;
-            const baseX = this.UI_OFFSET_X;
-            const baseY = this.UI_OFFSET_Y + 60 + index * 100;
 
-            // Draw Container
-            this.ctx.strokeStyle = isSelected ? '#ffcc00' : '#444';
-            this.ctx.lineWidth = isSelected ? 3 : 1;
-            this.ctx.strokeRect(baseX, baseY, 100, 80);
+            const offsetX = this.PIECE_START_X + index * (this.PIECE_BOX_SIZE + this.PIECE_GAP);
+            const offsetY = this.PIECE_BOX_Y;
 
+            // Highlight selected
             if (isSelected) {
-                this.ctx.fillStyle = 'rgba(255, 204, 0, 0.1)';
-                this.ctx.fillRect(baseX, baseY, 100, 80);
+                this.ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+                this.ctx.fillRect(offsetX, offsetY, this.PIECE_BOX_SIZE, 80); // Height approx
+                this.ctx.strokeStyle = '#fff';
+                this.ctx.lineWidth = 2;
+                this.ctx.strokeRect(offsetX, offsetY, this.PIECE_BOX_SIZE, 80);
+            } else {
+                // Dim non-selected?
+                // this.ctx.fillStyle = 'rgba(0,0,0,0.5)';
+                // this.ctx.fillRect(offsetX, offsetY, 120, 80);
             }
 
-            // Draw Number
-            this.ctx.fillStyle = isSelected ? '#ffcc00' : '#888';
-            this.ctx.font = '16px Arial';
-            this.ctx.fillText(`${index + 1}`, baseX + 5, baseY + 20);
+            // Draw box border
+            this.ctx.strokeStyle = '#444';
+            this.ctx.lineWidth = 1;
+            this.ctx.strokeRect(offsetX, offsetY, this.PIECE_BOX_SIZE, 80);
 
-            // Draw Mini Piece
-            this.drawMiniPiece(piece, baseX + 50, baseY + 40);
+            // Draw Piece centered in box
+            // Piece usually 3-4 blocks.
+            // Center is roughly +1.5 blocks?
+            // Let's hardcode center offset (40, 10) relative to box
+            const pieceX = offsetX + 20;
+            const pieceY = offsetY + 10;
+
+            const blocks = piece.getBlocks();
+            const color = piece.getColor();
+
+            for (const block of blocks) {
+                this.drawCell(pieceX + block.x * this.CELL_SIZE, pieceY + block.y * this.CELL_SIZE, color);
+            }
+
+            // Draw Key Hint
+            this.ctx.fillStyle = '#888';
+            this.ctx.font = '12px Inter';
+            this.ctx.textAlign = 'center';
+            this.ctx.fillText(`[${index + 1}]`, offsetX + this.PIECE_BOX_SIZE / 2, offsetY + 95);
         });
     }
 
-    private drawMiniPiece(piece: Piece, centerX: number, centerY: number) {
-        const blocks = piece.getBlocks(0); // Show default rotation
-        const color = piece.getColor();
-        const miniSize = 20;
-
-        for (const block of blocks) {
-            const x = centerX + block.x * miniSize;
-            const y = centerY + block.y * miniSize;
-
-            this.ctx.fillStyle = color;
-            this.ctx.fillRect(x, y, miniSize - 1, miniSize - 1);
-        }
-    }
-
-    // Draw generic text for UI (Score etc)
     public drawUI(score: number, level: number, lines: number) {
-        const x = this.UI_OFFSET_X;
-        const y = 400;
-        const lh = 30;
+        // Draw HUD on sides (Top area)
+        this.ctx.textAlign = 'left';
 
-        this.ctx.fillStyle = '#fff';
-        this.ctx.font = '20px Arial';
+        // Left side
+        this.drawText(`LEVEL`, 50, 40, 14, '#aaa', 'left');
+        this.drawText(`${level}`, 100, 40, 20, '#fff', 'left');
 
-        this.ctx.fillText(`Score: ${score}`, x, y);
-        this.ctx.fillText(`Level: ${level}`, x, y + lh);
-        this.ctx.fillText(`Lines: ${lines}`, x, y + lh * 2);
+        this.drawText(`LINES`, 200, 40, 14, '#aaa', 'left'); // Moved right for horizontal layout
+        this.drawText(`${lines}`, 250, 40, 20, '#fff', 'left');
+
+        // Right side - Score
+        this.drawText(`SCORE`, 600, 40, 14, '#aaa', 'right');
+        this.drawText(`${score}`, 750, 40, 20, '#fff', 'right');
     }
-    public drawText(text: string, x: number, y: number, size: number = 30, color: string = '#fff') {
+    public drawText(text: string, x: number, y: number, size: number = 30, color: string = '#fff', textAlign: CanvasTextAlign = 'left') {
         this.ctx.fillStyle = color;
         this.ctx.font = `${size}px Arial`;
+        this.ctx.textAlign = textAlign;
         this.ctx.fillText(text, x, y);
     }
 }

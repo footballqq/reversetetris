@@ -25,6 +25,8 @@ const ui = new UIManager();
 // Audio Init on first interaction
 const initAudio = () => {
   audio.init();
+  // Start BGM on first interaction if not muted?
+  // audio.startBgm(); 
   canvas.removeEventListener('mousedown', initAudio);
   canvas.removeEventListener('touchstart', initAudio);
   window.removeEventListener('keydown', initAudio);
@@ -32,6 +34,21 @@ const initAudio = () => {
 canvas.addEventListener('mousedown', initAudio);
 canvas.addEventListener('touchstart', initAudio);
 window.addEventListener('keydown', initAudio);
+
+// Audio Toggle Button
+const audioBtn = document.getElementById('audio-btn')!;
+audioBtn.addEventListener('click', (e) => {
+  e.stopPropagation(); // Avoid triggering game inputs if overlapping
+  audio.init(); // Ensure init
+  audio.toggleBgm();
+
+  // Update Icon
+  if (audio.isBgmPlaying()) {
+    audioBtn.textContent = '🔊';
+  } else {
+    audioBtn.textContent = '🔇';
+  }
+});
 
 // --- UI Event Bindings ---
 

@@ -12,6 +12,7 @@ export enum GameState {
     MENU,
     SELECTING,
     AI_PLAYING,
+    AI_ANIMATING,
     PAUSED,
     WIN,
     LOSE
@@ -45,6 +46,9 @@ export class GameEngine {
     // AI Animation
     private aiTimer: number = 0;
     private currentAiSpeed: number = 500; // ms
+    private moveQueue: { type: 'rotate' | 'move' | 'drop', value: number }[] = [];
+    private animationTimer: number = 0;
+    // private readonly ANIMATION_STEP_DELAY = 100; // Adjust based on speed?
 
     // Events
     private listeners: Record<string, EventCallback[]> = {};
@@ -113,89 +117,135 @@ export class GameEngine {
 
         this.currentPiece = this.nextPieces[index];
         // Spawn position: Top middle
-        // Grid Width 10. Center is 4.
-        // Piece shapes vary, but 4 is safe start.
-        // y start at 0 (hidden)
         this.activePiecePosition = { x: 4, y: 0 };
 
         this.emit('pieceSelected', this.currentPiece);
 
         this.state = GameState.AI_PLAYING;
         this.aiTimer = 0;
-
-        // Calculate AI Move immediately? Or wait?
-        // Let's calculate now, execute later.
+        // Calculate move immediately
+        this.prepareAIMove();
     }
 
-    public update(deltaTime: number) {
-        if (this.state === GameState.AI_PLAYING && this.currentPiece) {
-            this.aiTimer += deltaTime;
-
-            if (this.aiTimer >= this.currentAiSpeed) {
-                this.executeAIMove();
-                this.aiTimer = 0;
-            }
-        }
-    }
-
-    private executeAIMove() {
+    private prepareAIMove() {
         if (!this.currentPiece) return;
-
         const move = this.ai.findBestMove(this.grid, this.currentPiece, this.data.aiDifficulty);
 
         if (move) {
-            // Apply move
-            // 1. Set Rotation
-            this.currentPiece.setRotation(move.rotation);
-            // 2. Set X and Drop Y
-            // We need to find the drop Y again to be safe (locking)
-            // AI returns x, validY is implicit in score calculation but we didn't store it in MoveResult?
-            // Actually findBestMove does calculate validY but returns {x, rotation, score}.
-            // We need to re-calculate Y or pass it.
-            // Let's re-calculate logic: standard drop.
-
-            const blocks = this.currentPiece.getBlocks();
-            let finalY = -1;
-            for (let dy = 0; dy < Grid.TOTAL_ROWS; dy++) {
-                if (this.grid.isValidPosition(blocks, move.x, dy)) {
-                    finalY = dy;
-                } else {
-                    break;
-                }
-            }
-
-            if (finalY !== -1) {
-                // Lock it
-                const id = PIECE_TYPE_TO_ID[this.currentPiece.type];
-                this.grid.lockPiece(blocks, move.x, finalY, id);
-                this.data.piecesPlaced++;
-
-                // Check Lines
-                const cleared = this.grid.clearLines();
-                if (cleared > 0) {
-                    this.data.linesCleared += cleared;
-                    this.emit('linesCleared', cleared);
-                }
-
-                this.emit('pieceLocked');
-
-                // Check Win/Lose
-                this.checkGameStatus();
-            } else {
-                // Should not happen if AI found a move
-                console.error("AI returned valid move but placement failed");
-                this.state = GameState.WIN; // Player wins if AI fails?
-                this.emit('gameOver', 'win');
-            }
+            this.generateMoveQueue(move);
+            this.state = GameState.AI_ANIMATING;
+            this.animationTimer = 0;
         } else {
-            // AI Couldn't move -> Top Out -> Player Wins!
+            // AI Failed - Top Out
             this.state = GameState.WIN;
             this.emit('gameOver', 'win');
-            return;
+        }
+    }
+
+    private generateMoveQueue(target: { x: number, rotation: number }) {
+        this.moveQueue = [];
+        // 1. Rotate
+        // Target rotation (0-3). Current 0.
+        // Naive: just rotate right N times.
+        let rotations = target.rotation; // Assuming start is 0
+        for (let i = 0; i < rotations; i++) {
+            this.moveQueue.push({ type: 'rotate', value: 1 });
         }
 
+        // 2. Move X
+        const startX = 4;
+        const diff = target.x - startX;
+        if (diff !== 0) {
+            const dir = diff > 0 ? 1 : -1;
+            for (let i = 0; i < Math.abs(diff); i++) {
+                this.moveQueue.push({ type: 'move', value: dir });
+            }
+        }
+
+        // 3. Drop
+        this.moveQueue.push({ type: 'drop', value: 0 });
+    }
+
+    public update(deltaTime: number) {
+        // AI Thinking (Simulated delay if needed, but we used SELECTING->ANIMATING immediately for responsiveness, 
+        // effectively 0 think time but animation takes time)
+        // If we want a pause before animation starts:
         if (this.state === GameState.AI_PLAYING) {
-            // Continue to next turn
+            this.aiTimer += deltaTime;
+            // Wait briefly before starting animation?
+            if (this.aiTimer > 200) {
+                this.prepareAIMove();
+            }
+        }
+
+        if (this.state === GameState.AI_ANIMATING && this.currentPiece) {
+            this.animationTimer += deltaTime;
+            // Calculate step delay based on speed
+            // If total speed 1000ms, and queue length 10. Step = 100ms.
+            // Minimum 30ms for smoothness.
+            const queueLen = this.moveQueue.length || 1;
+            const stepDelay = Math.max(30, Math.min(200, this.currentAiSpeed / queueLen));
+
+            if (this.animationTimer >= stepDelay) {
+                this.animationTimer = 0;
+                this.processAnimationStep();
+            }
+        }
+    }
+
+    private processAnimationStep() {
+        if (this.moveQueue.length === 0) return;
+
+        const action = this.moveQueue.shift();
+        if (!action) return;
+
+        if (action.type === 'rotate') {
+            this.currentPiece?.rotateClockwise();
+            // We assume valid because AI chose it, but in reality 
+            // rotating at spawn might need wall kick logic if implemented.
+            // visual only? No, actual state.
+        } else if (action.type === 'move') {
+            this.activePiecePosition.x += action.value;
+        } else if (action.type === 'drop') {
+            this.executeDropAndLock();
+        }
+    }
+
+    private executeDropAndLock() {
+        if (!this.currentPiece) return;
+
+        const blocks = this.currentPiece.getBlocks();
+        let finalY = -1;
+        for (let dy = 0; dy < Grid.TOTAL_ROWS; dy++) {
+            if (this.grid.isValidPosition(blocks, this.activePiecePosition.x, dy)) {
+                finalY = dy;
+            } else {
+                break;
+            }
+        }
+
+        if (finalY !== -1) {
+            this.activePiecePosition.y = finalY; // Visual snap
+            const id = PIECE_TYPE_TO_ID[this.currentPiece.type];
+            this.grid.lockPiece(blocks, this.activePiecePosition.x, finalY, id);
+            this.data.piecesPlaced++;
+
+            const cleared = this.grid.clearLines();
+            if (cleared > 0) {
+                this.data.linesCleared += cleared;
+                this.emit('linesCleared', cleared);
+            }
+
+            this.emit('pieceLocked');
+            this.checkGameStatus();
+        } else {
+            // Determine why
+            this.state = GameState.WIN;
+            this.emit('gameOver', 'win');
+        }
+
+        if (this.state === GameState.AI_ANIMATING) {
+            // End of turn
             this.startTurn();
         }
     }
@@ -229,18 +279,24 @@ export class GameEngine {
             // Renderer expects (pieces, selectedIndex).
             // Since we handle input separately, let's just show them.
             this.renderer.drawPieceSelector(this.nextPieces, -1);
-        } else if (this.state === GameState.AI_PLAYING && this.currentPiece) {
-            // Draw current piece at spawn (or animating)
-            // For now static at spawn or maybe we can interpolate x/y for effect?
-            // T06 says "0.5s animation".
-            // We can just draw it at activePiecePosition?
-            // For M1, let's just draw it at spawn.
-
-            // To be helpful, we can show the Ghost Piece where AI is GOING to put it?
-            // "AI 计算最佳位置 (异步)" -> We know the target.
-            // If we calculate move at start of state, we can show ghost.
-            // For now, let's just show piece at top.
+        } else if ((this.state === GameState.AI_PLAYING || this.state === GameState.AI_ANIMATING) && this.currentPiece) {
+            // Draw current piece
             this.renderer.drawPiece(this.currentPiece, this.activePiecePosition.x, this.activePiecePosition.y);
+
+            // Draw Ghost Piece
+            // Need to calculate drop position for ghost
+            const blocks = this.currentPiece.getBlocks();
+            let finalY = -1;
+            for (let dy = 0; dy < Grid.TOTAL_ROWS; dy++) {
+                if (this.grid.isValidPosition(blocks, this.activePiecePosition.x, dy)) {
+                    finalY = dy;
+                } else {
+                    break;
+                }
+            }
+            if (finalY !== -1) {
+                this.renderer.drawGhostPiece(this.currentPiece, this.activePiecePosition.x, finalY);
+            }
         }
 
         if (this.state === GameState.WIN) {

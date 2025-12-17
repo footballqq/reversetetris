@@ -151,47 +151,163 @@ export class AudioManager {
         }
     }
 
-    // --- BGM (Simple Loop) ---
-    // Implementing a full sequencer is complex. Let's make a simple interval loop.
+    // --- BGM (Procedural) ---
+    private bgmNodes: { osc: OscillatorNode, gain: GainNode }[] = [];
+    private bgmTimeout: number | null = null;
+
+    public toggleBgm() {
+        if (this.isMuted) {
+            this.setMute(false);
+            if (!this.isPlayingBgm) {
+                this.startBgm();
+            }
+        } else {
+            this.setMute(true);
+        }
+    }
+
+    public isBgmPlaying() {
+        return !this.isMuted;
+    }
 
     public startBgm() {
+        if (!this.ctx) return;
         if (this.isPlayingBgm) return;
+
         this.isPlayingBgm = true;
-        this.scheduleBgm();
+        this.playBGMLoop();
+    }
+
+    private playBGMLoop() {
+        if (!this.isPlayingBgm || !this.ctx || !this.bgmGain) return;
+
+        const bpm = 128;
+        const beatDuration = 60 / bpm; // ~0.46s
+        const now = this.ctx.currentTime;
+
+        // 1. Bass Line
+        const bassNotes = [55, 55, 73, 55, 55, 55, 73, 82]; // A1...
+        bassNotes.forEach((freq, i) => {
+            if (!this.ctx || !this.bgmGain) return;
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+
+            osc.type = 'sawtooth';
+            osc.frequency.value = freq;
+
+            const startTime = now + i * beatDuration;
+            const duration = beatDuration;
+
+            // Envelope
+            gain.gain.setValueAtTime(0, startTime);
+            gain.gain.linearRampToValueAtTime(0.15, startTime + 0.02);
+            gain.gain.exponentialRampToValueAtTime(0.01, startTime + duration * 0.9);
+
+            osc.connect(gain);
+            gain.connect(this.bgmGain);
+
+            osc.start(startTime);
+            osc.stop(startTime + duration);
+
+            this.bgmNodes.push({ osc, gain });
+        });
+
+        // 2. Chords (Pads)
+        const chordNotes = [220, 277, 330]; // A3, C#4, E4 (A Major)
+        chordNotes.forEach(freq => {
+            if (!this.ctx || !this.bgmGain) return;
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+
+            osc.type = 'triangle';
+            osc.frequency.value = freq;
+
+            gain.gain.setValueAtTime(0.05, now);
+            // Sustain for almost full 8 beats
+            gain.gain.linearRampToValueAtTime(0.05, now + beatDuration * 7);
+            gain.gain.linearRampToValueAtTime(0, now + beatDuration * 8);
+
+            osc.connect(gain);
+            gain.connect(this.bgmGain);
+
+            osc.start(now);
+            osc.stop(now + beatDuration * 8);
+
+            this.bgmNodes.push({ osc, gain });
+        });
+
+        // 3. Arpeggios
+        const arpNotes = [440, 523, 659, 784, 659, 523, 440, 392];
+        arpNotes.forEach((freq, i) => {
+            if (!this.ctx || !this.bgmGain) return;
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+
+            osc.type = 'sine';
+            osc.frequency.value = freq;
+
+            const startTime = now + i * beatDuration;
+            gain.gain.setValueAtTime(0, startTime);
+            gain.gain.linearRampToValueAtTime(0.1, startTime + 0.01);
+            gain.gain.exponentialRampToValueAtTime(0.01, startTime + beatDuration * 0.5);
+
+            osc.connect(gain);
+            gain.connect(this.bgmGain);
+
+            osc.start(startTime);
+            osc.stop(startTime + beatDuration * 0.6);
+
+            this.bgmNodes.push({ osc, gain });
+        });
+
+        // Schedule Next Loop
+        const loopDurationMs = beatDuration * 8 * 1000;
+
+        // Cleanup old nodes occasionally or rely on stop() garbage collection?
+        // JS WebAudio nodes are heavy. We should clear references after stop.
+        // But for this simple loop, we just push new ones.
+        // We need to clear `this.bgmNodes` references for finished notes eventually.
+        // For simplicity: clear the array when stopping, or filter?
+        // Actually, just pushing is dangerous for memory if we run forever?
+        // The arrays grow.
+        // Let's optimize: clear the array before starting new loop? 
+        // No, current loop notes are playing.
+        // Let's just track them. 
+        // Ideally we filter out stopped nodes.
+        // For now, let's just clear the array in `stopBgm` and not worry about per-loop cleanup 
+        // (nodes disconnect themselves after stop? No, they stay connected until GC).
+        // Best practice: onended event. 
+        // Let's keep it simple: We only need `bgmNodes` for forceful stopping.
+        // If we don't stop forcefully, they stop automatically.
+        // So we can clear `bgmNodes` at start of loop if we are sure no overlap.
+        // Arps and Bass don't overlap loops. Chords end at 8.
+        // So safe to clear.
+        this.bgmNodes = [];
+
+        this.bgmTimeout = window.setTimeout(() => {
+            if (this.isPlayingBgm) {
+                this.playBGMLoop();
+            }
+        }, loopDurationMs - 50); // slight overlap/anticipation? logic says -50 to sync
     }
 
     public stopBgm() {
         this.isPlayingBgm = false;
-        if (this.ctx) {
-            this.ctx.suspend(); // Or just stop scheduling?
-            // Actually nice to keep SFX working.
+        if (this.bgmTimeout !== null) {
+            clearTimeout(this.bgmTimeout);
+            this.bgmTimeout = null;
         }
-    }
 
-    private scheduleBgm() {
-        if (!this.isPlayingBgm || !this.ctx || !this.bgmGain) return;
-
-        // Simple bassline loop: C2, C2, G1, G1
-        // bpm 120 -> beat every 0.5s.
-        // We use lookahead scheduling ideally.
-        // For simplicity, just use setInterval to trigger notes? No, drift.
-        // Use recursive setTimeout based on currentTime.
-
-        // Actually, T09 says "Simple 4 bar loop".
-        // Let's assume we invoke this from game loop or internal interval?
-        // Let's use `setInterval` that schedules notes 100ms ahead.
-
-        // Or simply: Do nothing for now, just play a drone? BGM might be annoying if bad.
-        // Let's implement a very simple ambient drone.
-
-        // Low C drone
-        /*
-        const osc = this.ctx.createOscillator();
-        osc.type = 'triangle';
-        osc.frequency.setValueAtTime(65.41, this.ctx.currentTime);
-        osc.connect(this.bgmGain);
-        osc.start();
-        */
-        // Just comment out BGM logic for now to avoid ear pain until properly triggered.
+        // Stop all currently playing nodes
+        this.bgmNodes.forEach(node => {
+            try {
+                node.osc.stop();
+                node.osc.disconnect();
+                node.gain.disconnect();
+            } catch (e) {
+                // Ignore if already stopped
+            }
+        });
+        this.bgmNodes = [];
     }
 }

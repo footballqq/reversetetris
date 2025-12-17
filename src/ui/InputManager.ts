@@ -97,14 +97,20 @@ export class InputManager {
     }
 
     private handlePointerDown(x: number, y: number) {
-        // Check Piece Selection Areas
-        // 3 pieces usually
-        for (let i = 0; i < 3; i++) {
-            const bx = this.UI_OFFSET_X;
-            const by = this.UI_OFFSET_Y + 60 + i * (this.PIECE_BOX_HEIGHT + this.PIECE_BOX_GAP);
+        // Check Piece Selection Areas (Bottom)
+        // Y: 530, Width: 120, Height: 80, Gap: 10, StartX: 220
+        const PIECE_BOX_Y = 530;
+        const PIECE_BOX_SIZE = 120; // Width
+        const PIECE_BOX_HEIGHT = 80;
+        const PIECE_START_X = 220;
+        const PIECE_GAP = 10;
 
-            if (x >= bx && x <= bx + this.PIECE_BOX_WIDTH &&
-                y >= by && y <= by + this.PIECE_BOX_HEIGHT) {
+        for (let i = 0; i < 3; i++) {
+            const bx = PIECE_START_X + i * (PIECE_BOX_SIZE + PIECE_GAP);
+            const by = PIECE_BOX_Y;
+
+            if (x >= bx && x <= bx + PIECE_BOX_SIZE &&
+                y >= by && y <= by + PIECE_BOX_HEIGHT) {
                 this.emit('selectPiece', i);
                 return;
             }
