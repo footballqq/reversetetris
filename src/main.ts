@@ -17,7 +17,7 @@ app.innerHTML = `
 const canvas = document.getElementById('game-canvas') as HTMLCanvasElement;
 const renderer = new Renderer(canvas);
 const engine = new GameEngine(renderer);
-const inputManager = new InputManager(canvas);
+const inputManager = new InputManager(canvas, renderer);
 const audio = new AudioManager();
 const ui = new UIManager();
 

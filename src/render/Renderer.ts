@@ -7,27 +7,28 @@ import { Animator } from './Animator';
 export class Renderer {
     private canvas: HTMLCanvasElement;
     private ctx: CanvasRenderingContext2D;
-    private width: number;
-    private height: number;
+    private width: number = 800;
+    private height: number = 600;
     public animator: Animator;
+    // Layout State (Public for InputManager)
+    public layout = {
+        cellSize: 24,
+        gridX: 0,
+        gridY: 0,
+        gridWidth: 0,
+        gridHeight: 0,
+        selectionY: 20,
+        selectionHeight: 80,
+        selectionX: 0,
+        slotWidth: 0,
+        isPortrait: false
+    };
 
-    private readonly CELL_SIZE = 24;
-    private readonly GRID_OFFSET_X = 280; // (800 - 240) / 2
-    private readonly GRID_OFFSET_Y = 110;
-
-    // Selection Area
-    private readonly SELECTION_Y = 20;
-    private readonly SELECTION_HEIGHT = 80;
-
-    // Derived
-    private get GRID_WIDTH_PX() { return Grid.WIDTH * this.CELL_SIZE; }
-    private get GRID_HEIGHT_PX() { return (Grid.TOTAL_ROWS - this.VISIBLE_START_ROW) * this.CELL_SIZE; }
     private readonly VISIBLE_START_ROW = 2; // Rows 0-1 are hidden buffer
 
     constructor(canvas: HTMLCanvasElement) {
         this.canvas = canvas;
         this.ctx = canvas.getContext('2d')!;
-        this.width = canvas.width;
         this.height = canvas.height;
         this.animator = new Animator();
 
@@ -81,41 +82,41 @@ export class Renderer {
         this.ctx.save();
         this.ctx.translate(shake.x, shake.y);
 
-        // 1. Draw Grid Background (Darker area)
+        // 1. Draw Grid Background
         this.ctx.fillStyle = '#111';
         this.ctx.fillRect(
-            this.GRID_OFFSET_X,
-            this.GRID_OFFSET_Y,
-            this.GRID_WIDTH_PX,
-            this.GRID_HEIGHT_PX
+            this.layout.gridX,
+            this.layout.gridY,
+            this.layout.gridWidth,
+            this.layout.gridHeight
         );
 
-        // 2. Draw Faint Grid Lines (Dark Grid)
+        // 2. Draw Faint Grid Lines
         this.ctx.strokeStyle = '#333';
         this.ctx.lineWidth = 1;
         this.ctx.beginPath();
         // Vertical lines
         for (let i = 0; i <= Grid.WIDTH; i++) {
-            const x = this.GRID_OFFSET_X + i * this.CELL_SIZE;
-            this.ctx.moveTo(x, this.GRID_OFFSET_Y);
-            this.ctx.lineTo(x, this.GRID_OFFSET_Y + this.GRID_HEIGHT_PX);
+            const x = this.layout.gridX + i * this.layout.cellSize;
+            this.ctx.moveTo(x, this.layout.gridY);
+            this.ctx.lineTo(x, this.layout.gridY + this.layout.gridHeight);
         }
         // Horizontal lines
         for (let j = 0; j <= (Grid.TOTAL_ROWS - this.VISIBLE_START_ROW); j++) {
-            const y = this.GRID_OFFSET_Y + j * this.CELL_SIZE;
-            this.ctx.moveTo(this.GRID_OFFSET_X, y);
-            this.ctx.lineTo(this.GRID_OFFSET_X + this.GRID_WIDTH_PX, y);
+            const y = this.layout.gridY + j * this.layout.cellSize;
+            this.ctx.moveTo(this.layout.gridX, y);
+            this.ctx.lineTo(this.layout.gridX + this.layout.gridWidth, y);
         }
         this.ctx.stroke();
 
-        // 3. Draw Outer Border (Bright)
+        // 3. Draw Outer Border
         this.ctx.strokeStyle = '#fff';
         this.ctx.lineWidth = 2;
         this.ctx.strokeRect(
-            this.GRID_OFFSET_X - 2,
-            this.GRID_OFFSET_Y - 2,
-            this.GRID_WIDTH_PX + 4,
-            this.GRID_HEIGHT_PX + 4
+            this.layout.gridX - 2,
+            this.layout.gridY - 2,
+            this.layout.gridWidth + 4,
+            this.layout.gridHeight + 4
         );
 
         // Draw Grid Cells
@@ -127,18 +128,9 @@ export class Renderer {
 
                 if (cell !== 0 && color) {
                     this.drawCell(
-                        this.GRID_OFFSET_X + x * this.CELL_SIZE,
-                        this.GRID_OFFSET_Y + (y - this.VISIBLE_START_ROW) * this.CELL_SIZE,
+                        this.layout.gridX + x * this.layout.cellSize,
+                        this.layout.gridY + (y - this.VISIBLE_START_ROW) * this.layout.cellSize,
                         color
-                    );
-                } else {
-                    // Draw faint grid lines
-                    this.ctx.strokeStyle = '#2a2a2a';
-                    this.ctx.strokeRect(
-                        this.GRID_OFFSET_X + x * this.CELL_SIZE,
-                        this.GRID_OFFSET_Y + (y - this.VISIBLE_START_ROW) * this.CELL_SIZE,
-                        this.CELL_SIZE,
-                        this.CELL_SIZE
                     );
                 }
             }
@@ -154,16 +146,10 @@ export class Renderer {
         const blocks = piece.getBlocks(rotation);
         const color = piece.getColor();
 
-        // Calculate Pixel Position relative to Grid
-        // gridY is logical Y (0-21). Visible starts at 2.
-        // Screen Y = GRID_OFFSET_Y + (gridY - 2) * CELL_SIZE
-
         for (const block of blocks) {
-            const x = this.GRID_OFFSET_X + (gridX + block.x) * this.CELL_SIZE;
-            const y = this.GRID_OFFSET_Y + (gridY + block.y - this.VISIBLE_START_ROW) * this.CELL_SIZE;
+            const x = this.layout.gridX + (gridX + block.x) * this.layout.cellSize;
+            const y = this.layout.gridY + (gridY + block.y - this.VISIBLE_START_ROW) * this.layout.cellSize;
 
-            // Only draw if within visible grid area (approx)
-            // Allow drawing slightly above for drop animation?
             if (gridY + block.y >= this.VISIBLE_START_ROW) {
                 this.drawCell(x, y, color);
             }
@@ -181,8 +167,8 @@ export class Renderer {
         const color = piece.getColor();
 
         for (const block of blocks) {
-            const x = this.GRID_OFFSET_X + (gridX + block.x) * this.CELL_SIZE;
-            const y = this.GRID_OFFSET_Y + (gridY + block.y - this.VISIBLE_START_ROW) * this.CELL_SIZE;
+            const x = this.layout.gridX + (gridX + block.x) * this.layout.cellSize;
+            const y = this.layout.gridY + (gridY + block.y - this.VISIBLE_START_ROW) * this.layout.cellSize;
 
             if (gridY + block.y >= this.VISIBLE_START_ROW) {
                 this.drawCell(x, y, color, true);
@@ -193,9 +179,8 @@ export class Renderer {
     }
 
     private drawCell(x: number, y: number, color: string, isGhost = false) {
+        const size = this.layout.cellSize - 2;
         this.ctx.fillStyle = color;
-        // Inner padding for block look
-        const size = this.CELL_SIZE - 2;
         this.ctx.fillRect(x + 1, y + 1, size, size);
 
         // Standard Bevel
@@ -207,7 +192,7 @@ export class Renderer {
         // Gold Shine Effect
         if (!isGhost && color === '#FFD700') {
             const time = performance.now() / 500;
-            const alpha = (Math.sin(time) + 1) / 2 * 0.4 + 0.1; // 0.1 to 0.5 oscillating
+            const alpha = (Math.sin(time) + 1) / 2 * 0.4 + 0.1;
 
             this.ctx.save();
             this.ctx.strokeStyle = `rgba(255, 255, 200, ${alpha})`;
@@ -220,37 +205,37 @@ export class Renderer {
     }
 
     public drawPieceSelector(pieces: Piece[], selectedIndex: number) {
-        // Draw Container Box (White Border) same width as Grid
+        // Draw Container Box
         this.ctx.strokeStyle = '#fff';
         this.ctx.lineWidth = 2;
         this.ctx.strokeRect(
-            this.GRID_OFFSET_X - 2,
-            this.SELECTION_Y - 2,
-            this.GRID_WIDTH_PX + 4,
-            this.SELECTION_HEIGHT + 4
+            this.layout.selectionX - 2,
+            this.layout.selectionY - 2,
+            this.layout.gridWidth + 4,
+            this.layout.selectionHeight + 4
         );
 
-        // Label "NEXT"
+        // Label
         this.ctx.fillStyle = '#aaa';
         this.ctx.font = '12px Arial';
         this.ctx.textAlign = 'left';
-        this.ctx.fillText("CANDIDATES", this.GRID_OFFSET_X, this.SELECTION_Y - 8);
+        this.ctx.fillText("CANDIDATES", this.layout.selectionX, this.layout.selectionY - 8);
 
-        // Draw 3 Pieces distributed
-        const slotWidth = this.GRID_WIDTH_PX / 3;
+        // Draw slots
+        const slotWidth = this.layout.slotWidth;
 
         pieces.forEach((piece, index) => {
-            const cx = this.GRID_OFFSET_X + index * slotWidth + slotWidth / 2;
-            const cy = this.SELECTION_Y + this.SELECTION_HEIGHT / 2;
+            const cx = this.layout.selectionX + index * slotWidth + slotWidth / 2;
+            const cy = this.layout.selectionY + this.layout.selectionHeight / 2;
 
             // Highlight selected
             if (index === selectedIndex) {
                 this.ctx.fillStyle = 'rgba(255,255,255,0.1)';
                 this.ctx.fillRect(
-                    this.GRID_OFFSET_X + index * slotWidth,
-                    this.SELECTION_Y,
+                    this.layout.selectionX + index * slotWidth,
+                    this.layout.selectionY,
                     slotWidth,
-                    this.SELECTION_HEIGHT
+                    this.layout.selectionHeight
                 );
             }
 
@@ -262,8 +247,8 @@ export class Renderer {
                 // block.x * CELL_SIZE is offset from center
                 // Center piece at cx, cy
                 this.drawCell(
-                    cx + block.x * this.CELL_SIZE - this.CELL_SIZE / 2,
-                    cy + block.y * this.CELL_SIZE - this.CELL_SIZE / 2,
+                    cx + block.x * this.layout.cellSize - this.layout.cellSize / 2,
+                    cy + block.y * this.layout.cellSize - this.layout.cellSize / 2,
                     color
                 );
             }
@@ -272,29 +257,46 @@ export class Renderer {
             this.ctx.fillStyle = '#888';
             this.ctx.font = '10px Arial';
             this.ctx.textAlign = 'center';
-            this.ctx.fillText(`${index + 1}`, cx, this.SELECTION_Y + this.SELECTION_HEIGHT - 5);
+            this.ctx.fillText(`${index + 1}`, cx, this.layout.selectionY + this.layout.selectionHeight - 5);
         });
     }
 
     public drawUI(score: number, level: number, lines: number) {
-        // Draw HUD on RIGHT side of Grid
-        const startX = this.GRID_OFFSET_X + this.GRID_WIDTH_PX + 20;
-        const startY = this.GRID_OFFSET_Y;
-
         this.ctx.textAlign = 'left';
+        this.ctx.font = '12px Arial';
 
-        // SCORE
-        this.drawText("SCORE", startX, startY + 20, 14, '#aaa');
-        this.drawText(`${score}`, startX, startY + 50, 24, '#fff');
+        let startX, startY;
 
-        // LEVEL
-        this.drawText("LEVEL", startX, startY + 100, 14, '#aaa');
-        this.drawText(`${level}`, startX, startY + 130, 24, '#fff');
+        if (this.layout.isPortrait) {
+            // Portrait: Bottom
+            startX = this.layout.gridX;
+            startY = this.layout.gridY + this.layout.gridHeight + 20;
 
-        // LINES
-        this.drawText("LINES", startX, startY + 180, 14, '#aaa');
-        this.drawText(`${lines}`, startX, startY + 210, 24, '#fff');
+            // Horizontal layout below grid
+            this.drawText("SCORE", startX, startY, 12, '#aaa');
+            this.drawText(`${score}`, startX, startY + 20, 20, '#fff');
+
+            this.drawText("LEVEL", startX + 100, startY, 12, '#aaa');
+            this.drawText(`${level}`, startX + 100, startY + 20, 20, '#fff');
+
+            this.drawText("LINES", startX + 200, startY, 12, '#aaa');
+            this.drawText(`${lines}`, startX + 200, startY + 20, 20, '#fff');
+        } else {
+            // Landscape: Right side
+            startX = this.layout.gridX + this.layout.gridWidth + 20;
+            startY = this.layout.gridY;
+
+            this.drawText("SCORE", startX, startY + 20, 14, '#aaa');
+            this.drawText(`${score}`, startX, startY + 50, 24, '#fff');
+
+            this.drawText("LEVEL", startX, startY + 100, 14, '#aaa');
+            this.drawText(`${level}`, startX, startY + 130, 24, '#fff');
+
+            this.drawText("LINES", startX, startY + 180, 14, '#aaa');
+            this.drawText(`${lines}`, startX, startY + 210, 24, '#fff');
+        }
     }
+
     public drawText(text: string, x: number, y: number, size: number = 30, color: string = '#fff', textAlign: CanvasTextAlign = 'left') {
         this.ctx.fillStyle = color;
         this.ctx.font = `${size}px Arial`;
