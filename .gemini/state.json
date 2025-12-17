@@ -1,0 +1,14 @@
+{
+  "current_task": "11_coverage_check_algo 覆盖检测已完成",
+  "last_changes": [
+    "src/ta_reports/providers/coverage.py",
+    "src/ta_reports/providers/__init__.py",
+    "tests/providers/test_coverage_checker.py",
+    "CODEx_TODO.md"
+  ],
+  "next_actions": [
+    "实现 ingestion plan 生成器（task 12），消费 Coverage + ProviderRouter",
+    "梳理 incremental/auto 模式下的 overlap 与 verify 逻辑"
+  ],
+  "notes": "CoverageChecker 计算 min/max 并识别内部及首尾缺口，支持 allow_holes，pytest 通过。"
+}
