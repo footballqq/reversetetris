@@ -2,10 +2,14 @@
 export class UIManager {
     private overlays: Record<string, HTMLElement> = {};
     private app: HTMLElement;
+    private aiLogPanel: HTMLElement;
+    private aiLogVisible: boolean = false;
+    private aiLogTextArea: HTMLTextAreaElement | null = null;
 
     constructor() {
         this.app = document.getElementById('app')!;
         this.createOverlays();
+        this.aiLogPanel = this.createAiLogPanel();
         this.show('menu');
     }
 
@@ -105,6 +109,47 @@ export class UIManager {
         this.overlays.hud = hud;
     }
 
+    private createAiLogPanel(): HTMLElement {
+        const panel = document.createElement('div');
+        panel.id = 'ai-log-panel';
+        panel.className = 'ai-log-panel hidden';
+        panel.innerHTML = `
+            <div class="ai-log-header">
+                <div class="ai-log-title">AI LOG</div>
+                <div class="ai-log-actions">
+                    <button id="ai-log-copy" class="ai-log-btn">COPY</button>
+                    <button id="ai-log-close" class="ai-log-btn">CLOSE</button>
+                </div>
+            </div>
+            <textarea id="ai-log-text" class="ai-log-text" readonly></textarea>
+            <div class="ai-log-hint">Toggle: S</div>
+        `;
+
+        this.app.appendChild(panel);
+        this.aiLogTextArea = panel.querySelector('#ai-log-text') as HTMLTextAreaElement | null;
+
+        const copyBtn = panel.querySelector('#ai-log-copy') as HTMLButtonElement | null;
+        copyBtn?.addEventListener('click', async () => {
+            const text = this.aiLogTextArea?.value ?? '';
+            try {
+                await navigator.clipboard.writeText(text);
+                copyBtn.textContent = 'COPIED';
+                setTimeout(() => (copyBtn.textContent = 'COPY'), 800);
+            } catch {
+                // Fallback: select text for manual copy
+                if (this.aiLogTextArea) {
+                    this.aiLogTextArea.focus();
+                    this.aiLogTextArea.select();
+                }
+            }
+        });
+
+        const closeBtn = panel.querySelector('#ai-log-close') as HTMLButtonElement | null;
+        closeBtn?.addEventListener('click', () => this.setAiLogVisible(false));
+
+        return panel;
+    }
+
     private createOverlay(id: string, content: string): HTMLElement {
         const div = document.createElement('div');
         div.id = id;
@@ -128,6 +173,28 @@ export class UIManager {
 
     public hideAll() {
         Object.values(this.overlays).forEach(el => el.classList.add('hidden'));
+    }
+
+    public toggleAiLogPanel() {
+        this.setAiLogVisible(!this.aiLogVisible);
+    }
+
+    public setAiLogVisible(visible: boolean) {
+        this.aiLogVisible = visible;
+        if (visible) this.aiLogPanel.classList.remove('hidden');
+        else this.aiLogPanel.classList.add('hidden');
+    }
+
+    public isAiLogVisible(): boolean {
+        return this.aiLogVisible;
+    }
+
+    public setAiLog(text: string) {
+        if (this.aiLogTextArea) {
+            this.aiLogTextArea.value = text;
+            // Keep scroll at bottom for "move log" feel.
+            this.aiLogTextArea.scrollTop = this.aiLogTextArea.scrollHeight;
+        }
     }
 
     // Bindings

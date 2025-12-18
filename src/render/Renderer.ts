@@ -412,7 +412,7 @@ export class Renderer {
             if (version) {
                 this.drawText(version, startX, panelBottomY - 18, 12, '#666');
             }
-            this.drawText("D:DEBUG  V:VERSION", startX, panelBottomY - 2, 12, '#555');
+            this.drawText("D:DEBUG  V:VERSION  S:LOG", startX, panelBottomY - 2, 12, '#555');
         }
     }
 

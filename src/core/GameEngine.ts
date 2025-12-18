@@ -2,7 +2,7 @@
 import { Grid } from './Grid';
 import { Piece } from './Piece';
 import { PieceFactory } from './PieceFactory';
-import { AIController, AIWeights, AI_DIFFICULTY, MoveResult } from '@/ai/AIController';
+import { AIController, AIWeights, AI_DIFFICULTY, AIDecisionTrace, MoveResult } from '@/ai/AIController';
 import { Renderer } from '@/render/Renderer';
 import { PIECE_TYPE_TO_ID } from './PieceData';
 import { LevelGenerator } from '@/levels/LevelGenerator';
@@ -47,6 +47,8 @@ export class GameEngine {
     public versionHudEnabled: boolean = true;
     public appVersion: string = '';
     private difficultyOverride: { level: string; weights: AIWeights; speedMs: number } | null = null;
+    private decisionLogEnabled: boolean = false;
+    private lastDecisionLogText: string = '';
 
     // AI Animation
     private aiTimer: number = 0;
@@ -181,15 +183,56 @@ export class GameEngine {
 
         if (move) {
             this.lastAiMove = move;
+            this.updateDecisionLog();
             this.generateMoveQueue(move);
             this.state = GameState.AI_ANIMATING;
             this.animationTimer = 0;
         } else {
             // AI Failed - Top Out
             this.lastAiMove = null;
+            this.updateDecisionLog();
             this.state = GameState.WIN;
             this.emit('gameOver', 'win');
         }
+    }
+
+    private updateDecisionLog() {
+        if (!this.decisionLogEnabled) return;
+        const trace = this.ai.getLastTrace();
+        this.lastDecisionLogText = this.formatDecisionLog(trace);
+        this.emit('aiTrace', this.lastDecisionLogText);
+    }
+
+    private formatDecisionLog(trace: AIDecisionTrace | null): string {
+        const now = new Date().toISOString();
+        const header = [
+            `ReverseTetris AI Trace`,
+            `time=${now}`,
+            `version=${this.appVersion || 'unknown'}`,
+            `difficulty=${this.data.aiDifficultyLevel}`,
+            `turn=${this.data.piecesPlaced + 1}`,
+        ].join('\n');
+
+        const gridJson = JSON.stringify(this.grid.data);
+
+        if (!trace) {
+            return `${header}\n\n(no trace available)\n\ngrid=${gridJson}\n`;
+        }
+
+        const flags = `lexicographic=${trace.difficultyFlags.lexicographic} preferEdges=${trace.difficultyFlags.preferEdges}`;
+        const weights = JSON.stringify(trace.weights);
+
+        const fmt = (c: any) =>
+            `x=${c.x} r=${c.rotation} y=${c.y} ` +
+            `H=${c.holes}(+${c.holesCreated}) B=${c.blockades} W=${c.wellSums} ` +
+            `L=${c.linesCleared} AH=${c.aggregateHeight} BU=${c.bumpiness} E=${c.edgeDistance} ` +
+            `S=${Math.round(c.score * 100) / 100}` +
+            (c.gameOverAfterMove ? ' TOP_OUT' : '');
+
+        const best = `best: ${trace.pieceType} ${fmt(trace.best)}`;
+        const top = trace.top.map((c, i) => `${i + 1}. ${trace.pieceType} ${fmt(c)}`).join('\n');
+
+        return `${header}\n${flags}\nweights=${weights}\n\n${best}\n\ntop(${trace.top.length}/${trace.totalCandidates}):\n${top}\n\ngrid=${gridJson}\n`;
     }
 
     private generateMoveQueue(target: { x: number, rotation: number }) {
@@ -387,5 +430,17 @@ export class GameEngine {
 
     public toggleVersionHud() {
         this.versionHudEnabled = !this.versionHudEnabled;
+    }
+
+    public setDecisionLogEnabled(enabled: boolean) {
+        this.decisionLogEnabled = enabled;
+        this.ai.setTraceEnabled(enabled, 12);
+        if (enabled) {
+            this.updateDecisionLog();
+        }
+    }
+
+    public getLastDecisionLog(): string {
+        return this.lastDecisionLogText;
     }
 }

@@ -63,6 +63,10 @@ export class InputManager {
                 case 'V':
                     this.emit('toggleVersion');
                     break;
+                case 's':
+                case 'S':
+                    this.emit('toggleAiLog');
+                    break;
             }
         });
     }

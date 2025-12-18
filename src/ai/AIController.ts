@@ -2,6 +2,7 @@
 import { Grid } from '@/core/Grid';
 import { Piece } from '@/core/Piece';
 import { PIECE_TYPE_TO_ID } from '@/core/PieceData';
+import { PieceType } from '@/core/PieceType';
 
 export interface AIWeights {
     heightWeight: number;
@@ -75,7 +76,36 @@ export interface MoveResult {
     wellSums: number;
 }
 
+export interface AIDecisionCandidate extends MoveResult {
+    y: number;
+}
+
+export interface AIDecisionTrace {
+    pieceType: PieceType;
+    difficultyFlags: {
+        lexicographic: boolean;
+        preferEdges: boolean;
+    };
+    weights: AIWeights;
+    best: AIDecisionCandidate;
+    top: AIDecisionCandidate[];
+    totalCandidates: number;
+}
+
 export class AIController {
+    private traceEnabled: boolean = false;
+    private traceTopK: number = 12;
+    private lastTrace: AIDecisionTrace | null = null;
+
+    public setTraceEnabled(enabled: boolean, topK: number = 12) {
+        this.traceEnabled = enabled;
+        this.traceTopK = Math.max(1, Math.min(50, Math.floor(topK)));
+        if (!enabled) this.lastTrace = null;
+    }
+
+    public getLastTrace(): AIDecisionTrace | null {
+        return this.lastTrace;
+    }
 
     public findBestMove(grid: Grid, piece: Piece, weights: AIWeights): MoveResult | null {
         let bestScore = -Infinity;
@@ -91,6 +121,11 @@ export class AIController {
             edgeDistance: number;
         } | null = null;
         let bestMove: MoveResult | null = null;
+
+        const candidates: AIDecisionCandidate[] = this.traceEnabled ? [] : [];
+        const holesBeforeMap = this.traceEnabled || (weights.lexicographic ?? false)
+            ? this.computeHoleMap(grid)
+            : this.computeHoleMap(grid);
 
         // Try all rotations (0-3)
         for (let r = 0; r < 4; r++) {
@@ -121,7 +156,7 @@ export class AIController {
                 const edgeDistance = this.computeEdgeDistance(blocks, x);
 
                 // Simulate
-                const evalResult = this.evaluateMove(grid, blocks, x, validY, piece.type, weights);
+                const evalResult = this.evaluateMove(grid, holesBeforeMap, blocks, x, validY, piece.type, weights);
                 let score = evalResult.score;
 
                 // Add noise for low difficulty
@@ -164,10 +199,61 @@ export class AIController {
                         wellSums: evalResult.wellSums,
                     };
                 }
+
+                if (this.traceEnabled) {
+                    candidates.push({
+                        x,
+                        rotation: r,
+                        y: validY,
+                        score,
+                        linesCleared: evalResult.linesCleared,
+                        aggregateHeight: evalResult.aggregateHeight,
+                        holes: evalResult.holes,
+                        holesCreated: evalResult.holesCreated,
+                        blockades: evalResult.blockades,
+                        bumpiness: evalResult.bumpiness,
+                        gameOverAfterMove: evalResult.gameOverAfterMove,
+                        edgeDistance,
+                        wellSums: evalResult.wellSums,
+                    });
+                }
             }
         }
 
+        if (this.traceEnabled && bestMove) {
+            const bestCandidate = candidates.find(c => c.x === bestMove.x && c.rotation === bestMove.rotation) ?? candidates[0];
+            const sorted = [...candidates].sort((a, b) => this.compareCandidates(a, b, weights));
+            this.lastTrace = {
+                pieceType: piece.type,
+                difficultyFlags: { lexicographic: !!weights.lexicographic, preferEdges: !!weights.preferEdges },
+                weights,
+                best: bestCandidate,
+                top: sorted.slice(0, this.traceTopK),
+                totalCandidates: candidates.length,
+            };
+        } else {
+            this.lastTrace = null;
+        }
+
         return bestMove;
+    }
+
+    private compareCandidates(a: AIDecisionCandidate, b: AIDecisionCandidate, weights: AIWeights): number {
+        if (!weights.lexicographic) {
+            return b.score - a.score;
+        }
+
+        // Same order as isBetterLexicographic (lower is better for holes/blockades/wells/height/bumpiness/edgeDistance).
+        if (a.gameOverAfterMove !== b.gameOverAfterMove) return a.gameOverAfterMove ? 1 : -1;
+        if (a.holes !== b.holes) return a.holes - b.holes;
+        if (a.holesCreated !== b.holesCreated) return a.holesCreated - b.holesCreated;
+        if (a.blockades !== b.blockades) return a.blockades - b.blockades;
+        if (a.wellSums !== b.wellSums) return a.wellSums - b.wellSums;
+        if (a.linesCleared !== b.linesCleared) return b.linesCleared - a.linesCleared;
+        if (a.aggregateHeight !== b.aggregateHeight) return a.aggregateHeight - b.aggregateHeight;
+        if (a.bumpiness !== b.bumpiness) return a.bumpiness - b.bumpiness;
+        if (weights.preferEdges && a.edgeDistance !== b.edgeDistance) return a.edgeDistance - b.edgeDistance;
+        return b.score - a.score;
     }
 
     private isBetterLexicographic(
@@ -246,10 +332,11 @@ export class AIController {
     // Evaluate the grid state after this move
     private evaluateMove(
         grid: Grid,
+        holesBeforeMap: boolean[][],
         blocks: { x: number, y: number }[],
         x: number,
         y: number,
-        pieceType: any,
+        pieceType: PieceType,
         weights: AIWeights
     ): {
         score: number;
@@ -262,7 +349,6 @@ export class AIController {
         bumpiness: number;
         gameOverAfterMove: boolean;
     } {
-        const holesBeforeMap = this.computeHoleMap(grid);
         const simGrid = grid.clone();
         const id = PIECE_TYPE_TO_ID[pieceType as keyof typeof PIECE_TYPE_TO_ID] || 1;
 

@@ -206,6 +206,14 @@ inputManager.on('toggleVersion', () => {
   engine.toggleVersionHud();
 });
 
+inputManager.on('toggleAiLog', () => {
+  ui.toggleAiLogPanel();
+  engine.setDecisionLogEnabled(ui.isAiLogVisible());
+  if (ui.isAiLogVisible()) {
+    ui.setAiLog(engine.getLastDecisionLog());
+  }
+});
+
 
 // --- Game Engine Events ---
 
@@ -249,6 +257,10 @@ engine.on('gameOver', (result: 'win' | 'lose') => {
   } else {
     ui.show('lose');
   }
+});
+
+engine.on('aiTrace', (text: string) => {
+  if (ui.isAiLogVisible()) ui.setAiLog(text);
 });
 
 
