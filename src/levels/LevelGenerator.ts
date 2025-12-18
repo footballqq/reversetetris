@@ -6,29 +6,30 @@ export class LevelGenerator {
 
     public static generateLevel(id: number): LevelConfig {
         let diff: AIDifficultyLevel = 'easy';
-        let targetLines = 5;
+        let targetLines = 12;
         let speed = 500;
         let initialGrid: number[][] | undefined = undefined;
         let pieceChoices = 3;
 
         if (id <= 10) {
             diff = 'easy';
-            targetLines = 3 + Math.floor(id / 2); // 3-8
+            // Give the player more time to learn the "feed the AI" strategy.
+            targetLines = 10 + Math.floor(id / 2); // 10-15
             speed = 800 - (id * 20); // 780 - 600
         } else if (id <= 30) {
             diff = 'normal';
-            targetLines = 10 + Math.floor((id - 10) / 2); // 10-20
+            targetLines = 17 + Math.floor((id - 10) / 2); // 17-27
             speed = 600 - ((id - 10) * 10); // 600-400
         } else if (id <= 70) {
             diff = 'hard';
-            targetLines = 20 + Math.floor((id - 30) / 2);
+            targetLines = 30 + Math.floor((id - 30) / 2); // 30-50
             speed = 400 - ((id - 30) * 5); // 400-200
 
             // Add Garbage lines starting level 31
             initialGrid = this.generateGarbageGrid(Math.min(10, Math.floor((id - 20) / 5)));
         } else {
             diff = 'god';
-            targetLines = 40 + (id - 70);
+            targetLines = 55 + (id - 70); // 55-85
             speed = 200; // Fast
             initialGrid = this.generateGarbageGrid(8 + Math.floor((id - 70) / 5));
         }
