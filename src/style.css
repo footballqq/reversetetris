@@ -158,6 +158,78 @@ h2 {
   color: #000;
 }
 
+.level-btn.locked {
+  background: rgba(40, 40, 40, 0.5);
+  border-color: #333;
+  color: #666;
+  cursor: not-allowed;
+  pointer-events: none;
+  opacity: 0.7;
+}
+
+.level-btn.locked small {
+  display: block;
+  font-size: 10px;
+  margin-top: 4px;
+}
+
+/* Stats Overlay */
+.stats-content {
+  text-align: left;
+  padding: 20px;
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 10px;
+  margin-bottom: 20px;
+  min-width: 320px;
+  max-width: 500px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.stat-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 1.1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding-bottom: 6px;
+}
+
+.achievements-section {
+  margin-top: 20px;
+}
+
+.achievements-section h3 {
+  font-size: 1rem;
+  margin-bottom: 15px;
+  color: var(--primary-color);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.achievements-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.achievement-tag {
+  background: linear-gradient(135deg, #1a1a1a, #333);
+  border: 1px solid var(--primary-color);
+  color: var(--primary-color);
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 0.9rem;
+  font-weight: bold;
+  box-shadow: 0 0 10px rgba(255, 204, 0, 0.2);
+}
+
+.no-achievements {
+  color: #777;
+  font-style: italic;
+  font-size: 0.9rem;
+}
+
 #hud-overlay {
   background: transparent;
   justify-content: flex-start;

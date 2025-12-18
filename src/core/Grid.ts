@@ -57,9 +57,17 @@ export class Grid {
         return this._grid[y][x] === 0;
     }
 
-    // Check if a piece can be placed at (x, y) with specific rotation
-    // pieceBlocks: relative coordinates of blocks [[x,y], [x,y]...]
-    public isValidPosition(pieceBlocks: { x: number, y: number }[], offsetX: number, offsetY: number): boolean {
+    /**
+     * Check if a piece can be placed at (x, y) with specific rotation
+     * @param pieceBlocks relative coordinates of blocks [[x,y], [x,y]...]
+     * @param options.ignoreCeiling if true, ignore collision with the red ceiling line (used for drop calculation)
+     */
+    public isValidPosition(
+        pieceBlocks: { x: number, y: number }[],
+        offsetX: number,
+        offsetY: number,
+        options: { ignoreCeiling?: boolean } = {}
+    ): boolean {
         for (const block of pieceBlocks) {
             const targetX = offsetX + block.x;
             const targetY = offsetY + block.y;
@@ -68,13 +76,13 @@ export class Grid {
             if (targetX < 0 || targetX >= Grid.WIDTH || targetY >= Grid.TOTAL_ROWS) {
                 return false;
             }
-            if (targetY >= 0 && this.isCeilingRow(targetY)) {
+
+            // Check ceiling collision (unless ignored)
+            if (!options.ignoreCeiling && targetY >= 0 && this.isCeilingRow(targetY)) {
                 return false;
             }
 
             // Check collision with existing blocks
-            // We allow placing above the grid (y < 0) as long as it handles valid spawn
-            // But typically we check grid collision.
             if (targetY >= 0 && this._grid[targetY][targetX] !== 0) {
                 return false;
             }

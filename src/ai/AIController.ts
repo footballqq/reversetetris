@@ -145,16 +145,14 @@ export class AIController {
                 // the piece center is at spawnY but its top is in the ceiling.
                 // We should keep searching until we find the real landing spot.
                 let validY = -1;
-                let foundEntry = false;
+                // gemini: 2025-12-18 SEARCH THROUGH CEILING: Search from spawnY downwards.
+                // We ignore the ceiling during the DROP search to allow large pieces to find their rest position.
+                // After finding the drop position, we'll check if it violates the ceiling.
                 for (let dy = spawnY; dy < Grid.TOTAL_ROWS; dy++) {
-                    if (grid.isValidPosition(blocks, x, dy)) {
+                    if (grid.isValidPosition(blocks, x, dy, { ignoreCeiling: true })) {
                         validY = dy;
-                        foundEntry = true;
                     } else {
-                        // If we have found a valid spot and now hit an obstacle, that's our landing.
-                        if (foundEntry) break;
-                        // If we haven't found a valid spot yet, maybe the piece is still
-                        // overlapping with the ceiling. Just keep going down.
+                        break;
                     }
                 }
 
@@ -305,11 +303,20 @@ export class AIController {
         }
 
         // gemini: 2025-12-18 Net benefit sorting (same logic as isBetterLexicographic).
+        // gemini: 2025-12-18 Anti-Towering Reorder:
+        // topOut > netBenefit > maxHeight > bumpiness > linesCleared > holes > ...
+        if (a.gameOverAfterMove !== b.gameOverAfterMove) return a.gameOverAfterMove ? 1 : -1;
+
         const aNet = a.linesCleared * 6 - a.holesCreated;
         const bNet = b.linesCleared * 6 - b.holesCreated;
+        if (aNet !== bNet) return bNet - aNet;
 
-        if (a.gameOverAfterMove !== b.gameOverAfterMove) return a.gameOverAfterMove ? 1 : -1;
-        if (aNet !== bNet) return bNet - aNet; // Higher net benefit is better
+        // Prioritize Lowest Max Column (Survive the ceiling)
+        if (a.maxHeight !== b.maxHeight) return a.maxHeight - b.maxHeight;
+
+        // Prioritize Uniformity (Flatten the towers)
+        if (a.bumpiness !== b.bumpiness) return a.bumpiness - b.bumpiness;
+
         if (a.linesCleared !== b.linesCleared) return b.linesCleared - a.linesCleared;
         if (a.holes !== b.holes) return a.holes - b.holes;
         if (a.blockades !== b.blockades) return a.blockades - b.blockades;
@@ -334,87 +341,56 @@ export class AIController {
             return { key: 'topOut', best: best.gameOverAfterMove, second: second.gameOverAfterMove };
         }
 
-        // gemini: 2025-12-18 Sync with net benefit logic
         const bNet = best.linesCleared * 6 - best.holesCreated;
         const sNet = second.linesCleared * 6 - second.holesCreated;
         if (bNet !== sNet) return { key: 'netBenefit', best: bNet, second: sNet };
 
+        // gemini: 2025-12-18 Anti-Towering logic in Trace
+        if (best.maxHeight !== second.maxHeight) {
+            return { key: 'maxHeight', best: best.maxHeight, second: second.maxHeight };
+        }
+        if (best.bumpiness !== second.bumpiness) {
+            return { key: 'bumpiness', best: best.bumpiness, second: second.bumpiness };
+        }
+
         if (best.linesCleared !== second.linesCleared) return { key: 'linesCleared', best: best.linesCleared, second: second.linesCleared };
         if (best.holes !== second.holes) return { key: 'holes', best: best.holes, second: second.holes };
         if (best.holesCreated !== second.holesCreated) return { key: 'holesCreated', best: best.holesCreated, second: second.holesCreated };
-        if (best.blockades !== second.blockades) return { key: 'blockades', best: best.blockades, second: second.blockades };
         if (best.wellSums !== second.wellSums) return { key: 'wellSums', best: best.wellSums, second: second.wellSums };
         if (best.aggregateHeight !== second.aggregateHeight) return { key: 'aggregateHeight', best: best.aggregateHeight, second: second.aggregateHeight };
-        if (best.bumpiness !== second.bumpiness) return { key: 'bumpiness', best: best.bumpiness, second: second.bumpiness };
         if (weights.preferEdges && best.edgeDistance !== second.edgeDistance) return { key: 'edgeDistance', best: best.edgeDistance, second: second.edgeDistance };
         if (best.score !== second.score) return { key: 'score', best: best.score, second: second.score };
         return undefined;
     }
 
     private isBetterLexicographic(
-        candidate: {
-            gameOverAfterMove: boolean;
-            holes: number;
-            holesCreated: number;
-            blockades: number;
-            wellSums: number;
-            linesCleared: number;
-            aggregateHeight: number;
-            bumpiness: number;
-            edgeDistance: number;
-        },
-        best: {
-            gameOverAfterMove: boolean;
-            holes: number;
-            holesCreated: number;
-            blockades: number;
-            wellSums: number;
-            linesCleared: number;
-            aggregateHeight: number;
-            bumpiness: number;
-            edgeDistance: number;
-        } | null,
+        candidate: any,
+        best: any,
         preferEdges: boolean
     ): boolean {
         if (!best) return true;
 
-        // gemini: 2025-12-18 Net benefit evaluation for smarter decisions.
-        // A line clear is worth roughly 6 "prevented holes" in terms of board health.
-        // Formula: netBenefit = linesCleared * 6 - holesCreated
-        const candidateNet = candidate.linesCleared * 6 - candidate.holesCreated;
-        const bestNet = best.linesCleared * 6 - best.holesCreated;
-
-        // 1) avoid immediate top-out
         if (candidate.gameOverAfterMove !== best.gameOverAfterMove) {
             return candidate.gameOverAfterMove === false;
         }
 
-        // 2) Use net benefit: prefer clears with fewer holes created
+        const candidateNet = candidate.linesCleared * 6 - candidate.holesCreated;
+        const bestNet = best.linesCleared * 6 - best.holesCreated;
         if (candidateNet !== bestNet) return candidateNet > bestNet;
 
-        // 3) If net benefit is equal, prefer more lines cleared
-        if (candidate.linesCleared !== best.linesCleared) return candidate.linesCleared > best.linesCleared;
-
-        // 4) minimize total holes
-        if (candidate.holes !== best.holes) return candidate.holes < best.holes;
-
-        // 5) minimize blockades
-        if (candidate.blockades !== best.blockades) return candidate.blockades < best.blockades;
-
-        // 6) minimize wells
-        if (candidate.wellSums !== best.wellSums) return candidate.wellSums < best.wellSums;
-
-        // 7) minimize height
-        if (candidate.aggregateHeight !== best.aggregateHeight) return candidate.aggregateHeight < best.aggregateHeight;
-
-        // 8) minimize bumpiness
+        // gemini: 2025-12-18 Inverted priorities to stop towering. 
+        // Peak reduction and Surface flatness are critical.
+        if (candidate.maxHeight !== best.maxHeight) return candidate.maxHeight < best.maxHeight;
         if (candidate.bumpiness !== best.bumpiness) return candidate.bumpiness < best.bumpiness;
 
-        // 9) prefer edges (optional tie-breaker)
+        if (candidate.linesCleared !== best.linesCleared) return candidate.linesCleared > best.linesCleared;
+        if (candidate.holes !== best.holes) return candidate.holes < best.holes;
+        if (candidate.wellSums !== best.wellSums) return candidate.wellSums < best.wellSums;
+        if (candidate.aggregateHeight !== best.aggregateHeight) return candidate.aggregateHeight < best.aggregateHeight;
+
         if (preferEdges && candidate.edgeDistance !== best.edgeDistance) {
             return candidate.edgeDistance < best.edgeDistance;
         }
-
         return false;
     }
 
@@ -477,13 +453,14 @@ export class AIController {
             score -= 1_000_000;
         }
 
+        // gemini: 2025-12-18 Heavy exponential penalty for towers near ceiling
+        if (maxHeight > 10) {
+            score -= Math.pow(maxHeight - 10, 2) * 5;
+        }
+
         score += aggregateHeight * weights.heightWeight;
         score += lines * weights.linesWeight;
         score += holes * weights.holesWeight;
-        // Blockades are always bad; by default, scale from holesWeight unless overridden elsewhere.
-        score += blockades * (weights.holesWeight * 0.5);
-        const wellsWeight = weights.wellsWeight ?? (weights.holesWeight * 0.25);
-        score += wellSums * wellsWeight;
         score += bumpiness * weights.bumpinessWeight;
 
         return { score, linesCleared: lines, aggregateHeight, maxHeight, holes, holesCreated, blockades, wellSums, bumpiness, gameOverAfterMove };

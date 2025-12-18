@@ -6,6 +6,7 @@ import { InputManager } from '@/ui/InputManager';
 import { AudioManager } from '@/audio/AudioManager';
 import { UIManager } from '@/ui/UIManager';
 import { LevelGenerator } from '@/levels/LevelGenerator';
+import { SaveManager } from '@/core/SaveManager';
 
 // App setup is handled by UIManager for overlays, but we need the canvas container
 const app = document.querySelector<HTMLDivElement>('#app')!;
@@ -63,13 +64,26 @@ ui.on('btn-start', 'click', () => {
 });
 
 ui.on('btn-levels', 'click', () => {
-  ui.generateLevelGrid(20, (id) => {
+  const profile = SaveManager.loadProfile();
+  ui.generateLevelGrid(20, profile.highestLevelCompleted, (id) => {
     ui.show('game');
     engine.setDifficulty(currentDifficulty);
     engine.loadLevel(LevelGenerator.generateLevel(id));
     audio.playSelect();
   });
   ui.show('levels');
+  audio.playSelect();
+});
+
+ui.on('btn-stats', 'click', () => {
+  const profile = SaveManager.loadProfile();
+  ui.updateStatsContent(profile);
+  ui.show('stats');
+  audio.playSelect();
+});
+
+ui.on('btn-back-stats', 'click', () => {
+  ui.show('menu');
   audio.playSelect();
 });
 

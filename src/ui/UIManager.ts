@@ -20,6 +20,7 @@ export class UIManager {
             <div class="menu-buttons">
                 <button id="btn-start" class="btn primary">START GAME</button>
                 <button id="btn-levels" class="btn">LEVELS</button>
+                <button id="btn-stats" class="btn">STATS</button>
                 <button id="btn-howto" class="btn">HOW TO PLAY</button>
                 <button id="btn-settings" class="btn">SETTINGS</button>
             </div>
@@ -58,6 +59,15 @@ export class UIManager {
                 </div>
             </div>
             <button id="btn-back-settings" class="btn">BACK</button>
+        `);
+
+        // Stats
+        this.overlays.stats = this.createOverlay('stats-overlay', `
+            <h2>PLAYER RECORDS</h2>
+            <div class="stats-content" id="stats-container">
+                <!-- Content generated on fly -->
+            </div>
+            <button id="btn-back-stats" class="btn">BACK</button>
         `);
 
         // Level Select (Simple Placeholder)
@@ -216,15 +226,46 @@ export class UIManager {
         if (targetEl) targetEl.textContent = cleared.toString() + "/" + target.toString();
     }
 
-    public generateLevelGrid(maxLevels: number, onSelect: (id: number) => void) {
+    public updateStatsContent(profile: any) {
+        const container = document.getElementById('stats-container');
+        if (!container) return;
+
+        const achievementMap: Record<string, string> = {
+            'GOD_SLAYER': '地狱终结者 (God Slayer)',
+            'NOVICE_FEEDER': '初级投喂员 (100 blocks)',
+            'BLOCK_MASTER': '方块大师 (1000 blocks)',
+            'LINE_CRUSHER': '拆迁队长 (100 lines)',
+            'SCORE_MILLIONAIRE': '百万富翁 (100k score)'
+        };
+
+        container.innerHTML = `
+            <div class="stat-row"><span>Total Score:</span> <span>${profile.totalScore.toLocaleString()}</span></div>
+            <div class="stat-row"><span>Lines Cleared:</span> <span>${profile.totalLinesCleared}</span></div>
+            <div class="stat-row"><span>Blocks Fed:</span> <span>${profile.totalPiecesPlaced}</span></div>
+            <div class="stat-row"><span>Levels Completed:</span> <span>${profile.highestLevelCompleted}</span></div>
+            <div class="achievements-section">
+                <h3>Achievements</h3>
+                <div class="achievements-list">
+                    ${profile.achievements.length > 0
+                ? profile.achievements.map((id: string) => `<div class="achievement-tag">${achievementMap[id] || id}</div>`).join('')
+                : '<div class="no-achievements">Keep playing to unlock!</div>'}
+                </div>
+            </div>
+        `;
+    }
+
+    public generateLevelGrid(maxLevels: number, highestLevel: number, onSelect: (id: number) => void) {
         const grid = document.getElementById('level-grid');
         if (!grid) return;
         grid.innerHTML = '';
         for (let i = 1; i <= maxLevels; i++) {
+            const isLocked = i > highestLevel + 1;
             const btn = document.createElement('button');
-            btn.className = 'level-btn';
-            btn.textContent = i.toString();
-            btn.onclick = () => onSelect(i);
+            btn.className = `level-btn ${isLocked ? 'locked' : ''}`;
+            btn.innerHTML = isLocked ? `<span>${i}</span> <small>🔒</small>` : i.toString();
+            if (!isLocked) {
+                btn.onclick = () => onSelect(i);
+            }
             grid.appendChild(btn);
         }
     }

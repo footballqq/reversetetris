@@ -1,8 +1,8 @@
-
 import { Grid } from './Grid';
 import { Piece } from './Piece';
 import { PieceFactory } from './PieceFactory';
-import { AIController, AIWeights, AI_DIFFICULTY, AIDecisionTrace, MoveResult } from '@/ai/AIController';
+import { AIController, AIWeights, AIDecisionTrace, MoveResult, AI_DIFFICULTY } from '@/ai/AIController';
+import { SaveManager } from './SaveManager';
 import { Renderer } from '@/render/Renderer';
 import { PIECE_TYPE_TO_ID } from './PieceData';
 import { LevelGenerator } from '@/levels/LevelGenerator';
@@ -240,10 +240,10 @@ export class GameEngine {
         const now = new Date().toISOString();
         const header = [
             `ReverseTetris AI Trace`,
-            `time=${now}`,
-            `version=${this.appVersion || 'unknown'}`,
-            `difficulty=${this.data.aiDifficultyLevel}`,
-            `turn=${this.data.piecesPlaced + 1}`,
+            `time = ${now} `,
+            `version = ${this.appVersion || 'unknown'} `,
+            `difficulty = ${this.data.aiDifficultyLevel} `,
+            `turn = ${this.data.piecesPlaced + 1} `,
         ].join('\n');
 
         const gridJson = JSON.stringify(this.grid.data);
@@ -251,25 +251,25 @@ export class GameEngine {
         if (!trace) {
             const currentPiece = this.currentPiece ? this.currentPiece.type : '(none)';
             const next = this.nextPieces?.map(p => p.type).join(',') ?? '';
-            return `${header}\ncurrentPiece=${currentPiece}\nnextPieces=[${next}]\n\n(no trace available)\n\ngrid=${gridJson}\n`;
+            return `${header} \ncurrentPiece = ${currentPiece} \nnextPieces = [${next}]\n\n(no trace available) \n\ngrid = ${gridJson} \n`;
         }
 
-        const flags = `lexicographic=${trace.difficultyFlags.lexicographic} preferEdges=${trace.difficultyFlags.preferEdges}`;
+        const flags = `lexicographic = ${trace.difficultyFlags.lexicographic} preferEdges = ${trace.difficultyFlags.preferEdges} `;
         const weights = JSON.stringify(trace.weights);
-        const decidedBy = trace.decidedBy ? `decidedBy=${trace.decidedBy.key} best=${trace.decidedBy.best} second=${trace.decidedBy.second}` : `decidedBy=(tie)`;
-        const order = `order=${trace.decisionOrder.join(' > ')}`;
+        const decidedBy = trace.decidedBy ? `decidedBy = ${trace.decidedBy.key} best = ${trace.decidedBy.best} second = ${trace.decidedBy.second} ` : `decidedBy = (tie)`;
+        const order = `order = ${trace.decisionOrder.join(' > ')} `;
 
         const fmt = (c: any) =>
-            `x=${c.x} r=${c.rotation} y=${c.y} ` +
-            `H=${c.holes}(+${c.holesCreated}) B=${c.blockades} W=${c.wellSums} ` +
-            `L=${c.linesCleared} MH=${c.maxHeight} AH=${c.aggregateHeight} BU=${c.bumpiness} E=${c.edgeDistance} ` +
-            `S=${Math.round(c.score * 100) / 100}` +
+            `x = ${c.x} r = ${c.rotation} y = ${c.y} ` +
+            `H = ${c.holes} (+${c.holesCreated}) B = ${c.blockades} W = ${c.wellSums} ` +
+            `L = ${c.linesCleared} MH = ${c.maxHeight} AH = ${c.aggregateHeight} BU = ${c.bumpiness} E = ${c.edgeDistance} ` +
+            `S = ${Math.round(c.score * 100) / 100} ` +
             (c.gameOverAfterMove ? ' TOP_OUT' : '');
 
-        const best = `best: ${trace.pieceType} ${fmt(trace.best)}`;
-        const top = trace.top.map((c, i) => `${i + 1}. ${trace.pieceType} ${fmt(c)}`).join('\n');
+        const best = `best: ${trace.pieceType} ${fmt(trace.best)} `;
+        const top = trace.top.map((c, i) => `${i + 1}. ${trace.pieceType} ${fmt(c)} `).join('\n');
 
-        return `${header}\n${flags}\n${order}\n${decidedBy}\nweights=${weights}\n\n${best}\n\ntop(${trace.top.length}/${trace.totalCandidates}):\n${top}\n\ngrid=${gridJson}\n`;
+        return `${header} \n${flags} \n${order} \n${decidedBy} \nweights = ${weights} \n\n${best} \n\ntop(${trace.top.length} / ${trace.totalCandidates}): \n${top} \n\ngrid = ${gridJson} \n`;
     }
 
     private generateMoveQueue(target: { x: number, rotation: number }) {
@@ -347,15 +347,15 @@ export class GameEngine {
         const blocks = this.currentPiece.getBlocks();
         const spawnY = this.grid.getSpawnY();
         let finalY = spawnY;
-        let foundEntry = false;
-
-        // gemini: 2025-12-18 Unified: Search from spawnY down, allowing large shapes to pass the ceiling.
+        // gemini: 2025-12-18 SEARCH THROUGH CEILING: Search from spawnY downwards.
+        // We ignore the red ceiling during the search so large pieces (like CROSS) can pass through
+        // if they are initially overlapping. The game-over check (isPieceTouchingCeiling)
+        // below will handle the actual boundary violation.
         for (let dy = spawnY; dy < Grid.TOTAL_ROWS; dy++) {
-            if (this.grid.isValidPosition(blocks, this.activePiecePosition.x, dy)) {
+            if (this.grid.isValidPosition(blocks, this.activePiecePosition.x, dy, { ignoreCeiling: true })) {
                 finalY = dy;
-                foundEntry = true;
             } else {
-                if (foundEntry) break;
+                break;
             }
         }
 
@@ -370,6 +370,7 @@ export class GameEngine {
         // If so, player wins (AI topped out). Check BEFORE clearing lines.
         if (this.grid.isPieceTouchingCeiling(blocks, this.activePiecePosition.x, finalY)) {
             this.state = GameState.WIN;
+            SaveManager.updateStats(this.data.level, this.data.linesCleared * 100, this.data.linesCleared, this.data.piecesPlaced, this.data.aiDifficultyLevel, true);
             this.emit('pieceLocked');
             this.emit('gameOver', 'win');
             return;
@@ -388,6 +389,7 @@ export class GameEngine {
             // gemini: 2025-12-18 Immediate check: did the drop just cover an existing block?
             if (this.grid.isGameOver()) {
                 this.state = GameState.WIN;
+                SaveManager.updateStats(this.data.level, this.data.linesCleared * 100, this.data.linesCleared, this.data.piecesPlaced, this.data.aiDifficultyLevel, true);
                 this.emit('gameOver', 'win');
                 return;
             }
@@ -409,14 +411,15 @@ export class GameEngine {
         // Condition 1: AI cleared target lines -> AI Wins (Player Loses)
         if (this.data.linesCleared >= this.data.targetLines) {
             this.state = GameState.LOSE;
+            SaveManager.updateStats(this.data.level, this.data.linesCleared * 100, this.data.linesCleared, this.data.piecesPlaced, this.data.aiDifficultyLevel, false);
             this.emit('gameOver', 'lose');
             return;
         }
 
         // Condition 2: Top Out -> Player Wins
-        // lockPiece doesn't auto-check, we call isGameOver
         if (this.grid.isGameOver()) {
             this.state = GameState.WIN;
+            SaveManager.updateStats(this.data.level, this.data.linesCleared * 100, this.data.linesCleared, this.data.piecesPlaced, this.data.aiDifficultyLevel, true);
             this.emit('gameOver', 'win');
             return;
         }
