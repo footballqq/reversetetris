@@ -181,19 +181,19 @@ export class GameEngine {
     }
 
     private getCeilingDropInterval(): number {
-        // Requested: EASY every 10 pieces; each difficulty increases interval by 5 pieces.
-        // easy=10, normal=15, hard=20, god=25
+        // gemini: 2025-12-18 Make it more aggressive.
+        // easy=5, normal=8, hard=12, god=15
         switch (this.data.aiDifficultyLevel) {
             case 'easy':
-                return 10;
+                return 5;
             case 'normal':
-                return 15;
+                return 8;
             case 'hard':
-                return 20;
+                return 12;
             case 'god':
-                return 25;
+                return 15;
             default:
-                return 0;
+                return 10;
         }
     }
 
@@ -345,10 +345,12 @@ export class GameEngine {
         if (!this.currentPiece) return;
 
         const blocks = this.currentPiece.getBlocks();
-        let finalY = this.activePiecePosition.y; // Default to current (even if blocked)
+        const spawnY = this.grid.getSpawnY();
+        let finalY = spawnY;
 
-        // Find ghost-style bottom
-        for (let dy = this.activePiecePosition.y; dy < Grid.TOTAL_ROWS; dy++) {
+        // gemini: 2025-12-18 Unified: Search from spawnY down.
+        // This ensures the piece only lands below the ceiling, and prevents the 'spawn kill' bug.
+        for (let dy = spawnY; dy < Grid.TOTAL_ROWS; dy++) {
             if (this.grid.isValidPosition(blocks, this.activePiecePosition.x, dy)) {
                 finalY = dy;
             } else {
@@ -359,9 +361,18 @@ export class GameEngine {
         this.activePiecePosition.y = finalY; // Visual snap
         const id = PIECE_TYPE_TO_ID[this.currentPiece.type];
 
-        // Lock it! (Grid will handle out-of-bounds or ceiling logic internally)
+        // Lock it!
         this.grid.lockPiece(blocks, this.activePiecePosition.x, finalY, id);
         this.data.piecesPlaced++;
+
+        // gemini: 2025-12-18 Check immediately: did this piece touch the ceiling?
+        // If so, player wins (AI topped out). Check BEFORE clearing lines.
+        if (this.grid.isPieceTouchingCeiling(blocks, this.activePiecePosition.x, finalY)) {
+            this.state = GameState.WIN;
+            this.emit('pieceLocked');
+            this.emit('gameOver', 'win');
+            return;
+        }
 
         const cleared = this.grid.clearLines();
         if (cleared > 0) {
@@ -377,7 +388,7 @@ export class GameEngine {
 
         this.emit('pieceLocked');
 
-        // gemini: 2025-12-18 Crucially, check win/loss ONLY after everything is finished.
+        // gemini: 2025-12-18 Also check standard game status (AI reaching target lines).
         this.checkGameStatus();
 
         if (this.state !== GameState.WIN && this.state !== GameState.LOSE) {
@@ -462,12 +473,10 @@ export class GameEngine {
             }
         }
 
-        if (this.state === GameState.WIN) {
-            // Draw Win Overlay
-            this.renderer.drawText("YOU WIN!", 300, 300, 50, '#0f0');
-        } else if (this.state === GameState.LOSE) {
-            this.renderer.drawText("GAME OVER", 300, 300, 50, '#f00');
-        }
+
+        // gemini: 2025-12-18 Removed canvas-based game over screen.
+        // UIManager handles the win/lose overlays with proper HTML UI.
+        // Canvas just keeps showing the final grid state.
     }
 
     public toggleDebugHud() {

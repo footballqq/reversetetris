@@ -138,17 +138,17 @@ export class AIController {
 
             // Find valid X range
             for (let x = -2; x < Grid.WIDTH + 2; x++) {
-                // Optimization: Start from valid spawn check at the current dynamic spawn Y
-                if (!grid.isValidPosition(blocks, x, spawnY)) {
-                    continue;
-                }
-
-                // Find lowest valid Y (Hard Drop)
+                // gemini: 2025-12-18 Fixed: Start search from row 0 to find any valid landing.
+                // Some pieces (CROSS, etc.) have blocks with negative Y offsets.
+                // We removed the spawn check because it was too restrictive for special pieces.
+                // gemini: 2025-12-18 Fixed: Search must start from a position where the 
+                // ENTIRE piece is below the ceiling. We'll start from spawnY and go down.
                 let validY = -1;
                 for (let dy = spawnY; dy < Grid.TOTAL_ROWS; dy++) {
                     if (grid.isValidPosition(blocks, x, dy)) {
                         validY = dy;
                     } else {
+                        // Once we hit an invalid position, the piece stops.
                         break;
                     }
                 }
@@ -232,11 +232,11 @@ export class AIController {
             const decisionOrder = weights.lexicographic
                 ? [
                     'topOut',
+                    'linesCleared',  // gemini: moved up
                     'holes',
                     'holesCreated',
                     'blockades',
                     'wellSums',
-                    'linesCleared',
                     'aggregateHeight',
                     'bumpiness',
                     ...(weights.preferEdges ? ['edgeDistance'] : []),
@@ -292,13 +292,16 @@ export class AIController {
             return b.score - a.score;
         }
 
-        // Same order as isBetterLexicographic (lower is better for holes/blockades/wells/height/bumpiness/edgeDistance).
+        // gemini: 2025-12-18 Net benefit sorting (same logic as isBetterLexicographic).
+        const aNet = a.linesCleared * 3 - a.holesCreated;
+        const bNet = b.linesCleared * 3 - b.holesCreated;
+
         if (a.gameOverAfterMove !== b.gameOverAfterMove) return a.gameOverAfterMove ? 1 : -1;
+        if (aNet !== bNet) return bNet - aNet; // Higher net benefit is better
+        if (a.linesCleared !== b.linesCleared) return b.linesCleared - a.linesCleared;
         if (a.holes !== b.holes) return a.holes - b.holes;
-        if (a.holesCreated !== b.holesCreated) return a.holesCreated - b.holesCreated;
         if (a.blockades !== b.blockades) return a.blockades - b.blockades;
         if (a.wellSums !== b.wellSums) return a.wellSums - b.wellSums;
-        if (a.linesCleared !== b.linesCleared) return b.linesCleared - a.linesCleared;
         if (a.aggregateHeight !== b.aggregateHeight) return a.aggregateHeight - b.aggregateHeight;
         if (a.bumpiness !== b.bumpiness) return a.bumpiness - b.bumpiness;
         if (weights.preferEdges && a.edgeDistance !== b.edgeDistance) return a.edgeDistance - b.edgeDistance;
@@ -318,11 +321,11 @@ export class AIController {
         if (best.gameOverAfterMove !== second.gameOverAfterMove) {
             return { key: 'topOut', best: best.gameOverAfterMove, second: second.gameOverAfterMove };
         }
+        if (best.linesCleared !== second.linesCleared) return { key: 'linesCleared', best: best.linesCleared, second: second.linesCleared };
         if (best.holes !== second.holes) return { key: 'holes', best: best.holes, second: second.holes };
         if (best.holesCreated !== second.holesCreated) return { key: 'holesCreated', best: best.holesCreated, second: second.holesCreated };
         if (best.blockades !== second.blockades) return { key: 'blockades', best: best.blockades, second: second.blockades };
         if (best.wellSums !== second.wellSums) return { key: 'wellSums', best: best.wellSums, second: second.wellSums };
-        if (best.linesCleared !== second.linesCleared) return { key: 'linesCleared', best: best.linesCleared, second: second.linesCleared };
         if (best.aggregateHeight !== second.aggregateHeight) return { key: 'aggregateHeight', best: best.aggregateHeight, second: second.aggregateHeight };
         if (best.bumpiness !== second.bumpiness) return { key: 'bumpiness', best: best.bumpiness, second: second.bumpiness };
         if (weights.preferEdges && best.edgeDistance !== second.edgeDistance) return { key: 'edgeDistance', best: best.edgeDistance, second: second.edgeDistance };
@@ -357,33 +360,39 @@ export class AIController {
     ): boolean {
         if (!best) return true;
 
+        // gemini: 2025-12-18 Net benefit evaluation for smarter decisions.
+        // A line clear is worth roughly 3 "prevented holes" in terms of board health.
+        // Formula: netBenefit = linesCleared * 3 - holesCreated
+        const candidateNet = candidate.linesCleared * 3 - candidate.holesCreated;
+        const bestNet = best.linesCleared * 3 - best.holesCreated;
+
         // 1) avoid immediate top-out
         if (candidate.gameOverAfterMove !== best.gameOverAfterMove) {
             return candidate.gameOverAfterMove === false;
         }
 
-        // 2) minimize holes
-        if (candidate.holes !== best.holes) return candidate.holes < best.holes;
+        // 2) Use net benefit: prefer clears with fewer holes created
+        if (candidateNet !== bestNet) return candidateNet > bestNet;
 
-        // 2.5) minimize newly created holes (prefer not to introduce new covered holes when outcome holes are equal)
-        if (candidate.holesCreated !== best.holesCreated) return candidate.holesCreated < best.holesCreated;
-
-        // 3) minimize blockades
-        if (candidate.blockades !== best.blockades) return candidate.blockades < best.blockades;
-
-        // 4) minimize wells
-        if (candidate.wellSums !== best.wellSums) return candidate.wellSums < best.wellSums;
-
-        // 5) maximize lines cleared
+        // 3) If net benefit is equal, prefer more lines cleared
         if (candidate.linesCleared !== best.linesCleared) return candidate.linesCleared > best.linesCleared;
 
-        // 6) minimize height
+        // 4) minimize total holes
+        if (candidate.holes !== best.holes) return candidate.holes < best.holes;
+
+        // 5) minimize blockades
+        if (candidate.blockades !== best.blockades) return candidate.blockades < best.blockades;
+
+        // 6) minimize wells
+        if (candidate.wellSums !== best.wellSums) return candidate.wellSums < best.wellSums;
+
+        // 7) minimize height
         if (candidate.aggregateHeight !== best.aggregateHeight) return candidate.aggregateHeight < best.aggregateHeight;
 
-        // 7) minimize bumpiness
+        // 8) minimize bumpiness
         if (candidate.bumpiness !== best.bumpiness) return candidate.bumpiness < best.bumpiness;
 
-        // 6) prefer edges (optional tie-breaker)
+        // 9) prefer edges (optional tie-breaker)
         if (preferEdges && candidate.edgeDistance !== best.edgeDistance) {
             return candidate.edgeDistance < best.edgeDistance;
         }

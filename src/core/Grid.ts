@@ -83,16 +83,29 @@ export class Grid {
     }
 
     // Lock piece into grid
+    // gemini: 2025-12-18 Always lock pieces, even if they are in the ceiling area.
+    // The game-over check will handle pieces that violate the boundary.
     public lockPiece(pieceBlocks: { x: number, y: number }[], offsetX: number, offsetY: number, typeId: number): void {
         for (const block of pieceBlocks) {
             const targetX = offsetX + block.x;
             const targetY = offsetY + block.y;
 
             if (targetX >= 0 && targetX < Grid.WIDTH && targetY >= 0 && targetY < Grid.TOTAL_ROWS) {
-                if (this.isCeilingRow(targetY)) continue;
                 this._grid[targetY][targetX] = typeId;
             }
         }
+    }
+
+    // Check if a piece placement violates the ceiling (any block at or above the ceiling line)
+    public isPieceTouchingCeiling(pieceBlocks: { x: number, y: number }[], _offsetX: number, offsetY: number): boolean {
+        const spawnY = this.getSpawnY();
+        for (const block of pieceBlocks) {
+            const targetY = offsetY + block.y;
+            if (targetY < spawnY) {
+                return true;
+            }
+        }
+        return false;
     }
 
     // Clear full lines

@@ -177,7 +177,7 @@ export class Renderer {
 
         // Draw the dark area above the ceiling line
         if (ceilingRows > 0) {
-            this.ctx.fillStyle = 'rgba(40, 40, 40, 0.7)';
+            this.ctx.fillStyle = 'rgba(10, 10, 10, 0.85)'; // Much darker for "no entry" look
             this.ctx.fillRect(
                 this.layout.gridX,
                 this.layout.gridY,
@@ -299,8 +299,8 @@ export class Renderer {
     }
 
     public drawPieceSelector(pieces: Piece[], selectedIndex: number) {
-        // gemini: 2025-12-18 Scale down pieces in selector to fit large shapes (6-block, cross etc.)
-        const selectorCellSize = Math.min(20, this.layout.cellSize * 0.7);
+        // gemini: 2025-12-18 Significantly scale down to prevent any clipping of large pieces.
+        const selectorCellSize = Math.min(14, this.layout.cellSize * 0.55);
 
         // Draw Container Box
         this.ctx.strokeStyle = '#fff';

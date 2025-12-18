@@ -70,6 +70,24 @@ body {
   pointer-events: none;
 }
 
+/* gemini: 2025-12-18 Win/Lose overlays should show the final game state */
+#win-overlay,
+#lose-overlay {
+  background: rgba(0, 0, 0, 0.7);
+}
+
+#win-overlay h1.win {
+  color: #00ff00;
+  font-size: 3rem;
+  text-shadow: 0 0 20px rgba(0, 255, 0, 0.5);
+}
+
+#lose-overlay h1.lose {
+  color: #ff0000;
+  font-size: 3rem;
+  text-shadow: 0 0 20px rgba(255, 0, 0, 0.5);
+}
+
 h1,
 h2 {
   text-transform: uppercase;

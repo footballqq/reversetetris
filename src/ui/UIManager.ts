@@ -30,16 +30,15 @@ export class UIManager {
         this.overlays.howto = this.createOverlay('howto-overlay', `
             <h2>游戏说明</h2>
             <div class="howto-content">
-                <p><strong>目标：</strong>让电脑AI的方块堆积到顶部，使其"顶飞"而输掉游戏。</p>
-                <p><strong>玩法：</strong></p>
+                <p><strong>目标：</strong>让电脑 AI 的方块堆叠并触碰到下落的<strong>天花板红线</strong>，使其"顶飞"（Top Out）。</p>
+                <p><strong>核心规则：</strong></p>
                 <ul>
-                    <li>每回合从上方3个候选方块中选择1个</li>
-                    <li>点击方块或按数字键 1/2/3 选择</li>
-                    <li>电脑AI会自动放置你选的方块</li>
-                    <li>选择能让AI难以消行的方块</li>
-                    <li>累计消除的行数达标即过关</li>
+                    <li>每回合从 3 个候选方块中选择 1 个分发给 AI。</li>
+                    <li><strong>动态天花板：</strong>红线会随时间不断下降，压缩 AI 的生存空间。</li>
+                    <li><strong>玩家获胜：</strong>AI 放置方块后，只要方块任何部分触碰或越过红线，你就赢了。</li>
+                    <li><strong>玩家失败：</strong>AI 在触顶前消除的行数达到关卡目标。</li>
                 </ul>
-                <p><strong>技巧：</strong>选择长条(I)会帮AI消行，尽量选择S/Z/T等难放的形状！</p>
+                <p><strong>技巧：</strong>长条(I)会帮 AI 消行续命，尽量喂给它 S/Z/T 或特殊的金块形状来干扰它！</p>
             </div>
             <button id="btn-back-howto" class="btn">BACK</button>
         `);
