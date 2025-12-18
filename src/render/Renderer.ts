@@ -313,7 +313,14 @@ export class Renderer {
         });
     }
 
-    public drawUI(score: number, level: number, lines: number) {
+    public drawUI(
+        score: number,
+        level: number,
+        lines: number,
+        difficultyLevel?: string,
+        debug?: { wellSums: number; holes: number; blockades: number },
+        version?: string
+    ) {
         this.ctx.textAlign = 'left';
         this.ctx.font = '12px Arial';
 
@@ -333,6 +340,21 @@ export class Renderer {
 
             this.drawText("LINES", startX + 200, startY, 12, '#aaa');
             this.drawText(`${lines}`, startX + 200, startY + 20, 20, '#fff');
+
+            if (difficultyLevel) {
+                this.drawText("DIFF", startX + 300, startY, 12, '#aaa');
+                this.drawText(`${difficultyLevel.toUpperCase()}`, startX + 300, startY + 20, 18, '#fff');
+            }
+
+            if (debug) {
+                this.drawText("WELLS", startX + 420, startY, 12, '#aaa');
+                this.drawText(`${debug.wellSums}`, startX + 420, startY + 20, 18, '#fff');
+            }
+
+            if (version) {
+                this.drawText("VER", startX + 520, startY, 12, '#666');
+                this.drawText(version, startX + 520, startY + 20, 12, '#888');
+            }
         } else {
             // Landscape: Right side
             startX = this.layout.gridX + this.layout.gridWidth + 20;
@@ -346,6 +368,30 @@ export class Renderer {
 
             this.drawText("LINES", startX, startY + 180, 14, '#aaa');
             this.drawText(`${lines}`, startX, startY + 210, 24, '#fff');
+
+            if (difficultyLevel) {
+                // Requested: show difficulty under LINES
+                this.drawText("DIFFICULTY", startX, startY + 250, 14, '#aaa');
+                this.drawText(`${difficultyLevel.toUpperCase()}`, startX, startY + 280, 22, '#fff');
+            }
+
+            if (debug) {
+                this.drawText("WELL SUMS", startX, startY + 320, 14, '#aaa');
+                this.drawText(`${debug.wellSums}`, startX, startY + 350, 22, '#fff');
+
+                // Classic covered holes can be useful to debug "隔空洞" issues.
+                this.drawText("HOLES", startX, startY + 390, 14, '#aaa');
+                this.drawText(`${debug.holes}`, startX, startY + 420, 22, '#fff');
+
+                this.drawText("BLOCKADES", startX, startY + 460, 14, '#aaa');
+                this.drawText(`${debug.blockades}`, startX, startY + 490, 22, '#fff');
+
+                this.drawText("DEBUG: D", startX, startY + 525, 12, '#666');
+                this.drawText("VERSION: V", startX, startY + 545, 12, '#666');
+            } else if (version) {
+                // Non-debug minimal version marker.
+                this.drawText(version, startX, startY + 320, 12, '#666');
+            }
         }
     }
 

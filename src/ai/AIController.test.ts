@@ -60,6 +60,68 @@ describe('AIController', () => {
         }
     });
 
+    it('god should prefer a line-clearing move when available', () => {
+        const grid = new Grid();
+        const ai = new AIController();
+        const weights = AI_DIFFICULTY.GOD;
+
+        // Build a nearly-complete bottom line with a single gap at x=0.
+        // Many moves are possible, but only filling x=0 on the bottom row clears a line.
+        const id = PIECE_TYPE_TO_ID[PieceType.O];
+        for (let x = 1; x < 10; x++) {
+            grid.lockPiece([{ x: 0, y: 0 }], x, 21, id);
+        }
+
+        const piece = new Piece(PieceType.I);
+        const move = ai.findBestMove(grid, piece, weights);
+
+        expect(move).not.toBeNull();
+        expect(move?.linesCleared).toBeGreaterThan(0);
+    });
+
+    it('god should minimize holes even if it clears a line elsewhere', () => {
+        const grid = new Grid();
+        const ai = new AIController();
+        const weights = AI_DIFFICULTY.GOD;
+
+        // Create a single hole at the bottom: fill x=0..9 at y=21 except x=4 (gap).
+        // There are placements that can create/leave holes and others that fill them; god should prefer fewer holes.
+        const id = PIECE_TYPE_TO_ID[PieceType.O];
+        for (let x = 0; x < 10; x++) {
+            if (x === 4) continue;
+            grid.lockPiece([{ x: 0, y: 0 }], x, 21, id);
+        }
+
+        // Give an O piece; placing it to cover the gap should reduce holes and potentially clear no lines.
+        const piece = new Piece(PieceType.O);
+        const move = ai.findBestMove(grid, piece, weights);
+
+        expect(move).not.toBeNull();
+        // We should avoid creating large classic-hole penalties.
+        expect(move?.holes).toBeLessThanOrEqual(1);
+    });
+
+    it('god should treat wells (two solid sides) as holes and fill them', () => {
+        const grid = new Grid();
+        const ai = new AIController();
+        const weights = AI_DIFFICULTY.GOD;
+
+        // Create a 1-wide well at x=4 (between x=3 and x=5) with depth 3.
+        // This is not a classic "vertical hole" (it is open to the top), but it is enclosed laterally.
+        const id = PIECE_TYPE_TO_ID[PieceType.O];
+        for (let y = Grid.TOTAL_ROWS - 1; y >= Grid.TOTAL_ROWS - 3; y--) {
+            grid.lockPiece([{ x: 0, y: 0 }], 3, y, id);
+            grid.lockPiece([{ x: 0, y: 0 }], 5, y, id);
+        }
+
+        const piece = new Piece(PieceType.I);
+        const move = ai.findBestMove(grid, piece, weights);
+
+        expect(move).not.toBeNull();
+        expect(move?.wellSums).toBe(0);
+        expect(move?.holes).toBe(0);
+    });
+
     it('should return null if no valid move', () => {
         const grid = new Grid();
         const ai = new AIController();

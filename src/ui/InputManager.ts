@@ -55,6 +55,14 @@ export class InputManager {
                 case 'Escape':
                     this.emit('menu');
                     break;
+                case 'd':
+                case 'D':
+                    this.emit('toggleDebug');
+                    break;
+                case 'v':
+                case 'V':
+                    this.emit('toggleVersion');
+                    break;
             }
         });
     }

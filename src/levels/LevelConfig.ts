@@ -20,8 +20,7 @@ export const DIFFICULTY_MAP: Record<AIDifficultyLevel, AIWeights> = {
     'normal': AI_DIFFICULTY.NORMAL,
     'hard': AI_DIFFICULTY.HARD,
     'god': {
-        ...AI_DIFFICULTY.HARD,
-        lookahead: 2,
-        heightWeight: -0.8 // Hates height more
+        ...AI_DIFFICULTY.GOD,
+        lookahead: 2, // placeholder; not implemented yet
     }
 };

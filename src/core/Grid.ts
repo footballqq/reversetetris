@@ -137,6 +137,53 @@ export class Grid {
         return holes;
     }
 
+    // AI Helper: Blockades are blocks that sit above at least one empty cell beneath them in the same column.
+    // They make holes harder to fix because pieces must fill around/under them.
+    public countBlockades(): number {
+        let blockades = 0;
+        for (let x = 0; x < Grid.WIDTH; x++) {
+            let emptyBelow = false;
+            for (let y = Grid.TOTAL_ROWS - 1; y >= 0; y--) {
+                if (this._grid[y][x] === 0) {
+                    emptyBelow = true;
+                } else if (emptyBelow) {
+                    blockades++;
+                }
+            }
+        }
+        return blockades;
+    }
+
+    // AI Helper: "Well" sums (cells that are empty but have filled neighbors on both sides, or a wall on one side).
+    // This captures valleys/shafts that are open to the top but enclosed laterally (what you described as "两面都是实体，中间空").
+    // Standard well-sum uses triangular numbers (depth 1 contributes 1, depth 2 contributes 1+2, ...).
+    public getWellSums(): number {
+        let sum = 0;
+
+        for (let x = 0; x < Grid.WIDTH; x++) {
+            let currentWellDepth = 0;
+
+            for (let y = 0; y < Grid.TOTAL_ROWS; y++) {
+                if (this._grid[y][x] !== 0) {
+                    currentWellDepth = 0;
+                    continue;
+                }
+
+                const leftFilled = x === 0 ? true : this._grid[y][x - 1] !== 0;
+                const rightFilled = x === Grid.WIDTH - 1 ? true : this._grid[y][x + 1] !== 0;
+
+                if (leftFilled && rightFilled) {
+                    currentWellDepth += 1;
+                    sum += currentWellDepth;
+                } else {
+                    currentWellDepth = 0;
+                }
+            }
+        }
+
+        return sum;
+    }
+
     // AI Helper: Aggregate Height (sum of all column heights)
     public getAggregateHeight(): number {
         let total = 0;

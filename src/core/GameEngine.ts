@@ -26,6 +26,7 @@ export interface GameData {
     piecesPlaced: number;
     targetLines: number;
     aiDifficulty: AIWeights;
+    aiDifficultyLevel: string;
 }
 
 type EventCallback = (data?: any) => void;
@@ -42,6 +43,9 @@ export class GameEngine {
     public nextPieces: Piece[] = [];
     public activePiecePosition: { x: number, y: number } = { x: 0, y: 0 };
     public ghostPiecePosition: { x: number, y: number } = { x: 0, y: 0 }; // For display
+    public debugHudEnabled: boolean = false;
+    public versionHudEnabled: boolean = true;
+    public appVersion: string = '';
 
     // AI Animation
     private aiTimer: number = 0;
@@ -62,7 +66,8 @@ export class GameEngine {
             linesCleared: 0,
             piecesPlaced: 0,
             targetLines: 10,
-            aiDifficulty: AI_DIFFICULTY.NORMAL
+            aiDifficulty: AI_DIFFICULTY.NORMAL,
+            aiDifficultyLevel: 'normal',
         };
     }
 
@@ -79,6 +84,7 @@ export class GameEngine {
 
     public setDifficulty(difficulty: 'EASY' | 'NORMAL' | 'HARD') {
         this.data.aiDifficulty = AI_DIFFICULTY[difficulty];
+        this.data.aiDifficultyLevel = difficulty.toLowerCase();
         // Also adjust AI speed based on difficulty
         switch (difficulty) {
             case 'EASY':
@@ -106,6 +112,7 @@ export class GameEngine {
         this.data.level = config.id;
         this.data.targetLines = config.targetLines;
         this.data.aiDifficulty = config.aiWeights;
+        this.data.aiDifficultyLevel = config.aiDifficultyLevel;
         // Apply AI speed
         this.currentAiSpeed = config.aiSpeed;
 
@@ -286,7 +293,16 @@ export class GameEngine {
     public render() {
         this.renderer.clear();
         this.renderer.drawGrid(this.grid);
-        this.renderer.drawUI(this.data.linesCleared * 100, this.data.level, this.data.linesCleared);
+        this.renderer.drawUI(
+            this.data.linesCleared * 100,
+            this.data.level,
+            this.data.linesCleared,
+            this.data.aiDifficultyLevel,
+            this.debugHudEnabled
+                ? { wellSums: this.grid.getWellSums(), holes: this.grid.countHoles(), blockades: this.grid.countBlockades() }
+                : undefined,
+            this.versionHudEnabled ? this.appVersion : undefined
+        );
 
         if (this.state === GameState.SELECTING) {
             // Draw Piece Selector
@@ -321,5 +337,13 @@ export class GameEngine {
         } else if (this.state === GameState.LOSE) {
             this.renderer.drawText("GAME OVER", 300, 300, 50, '#f00');
         }
+    }
+
+    public toggleDebugHud() {
+        this.debugHudEnabled = !this.debugHudEnabled;
+    }
+
+    public toggleVersionHud() {
+        this.versionHudEnabled = !this.versionHudEnabled;
     }
 }

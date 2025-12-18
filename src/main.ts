@@ -17,6 +17,7 @@ app.innerHTML = `
 const canvas = document.getElementById('game-canvas') as HTMLCanvasElement;
 const renderer = new Renderer(canvas);
 const engine = new GameEngine(renderer);
+engine.appVersion = `v${__APP_VERSION__}+${__GIT_SHA__}`;
 const inputManager = new InputManager(canvas, renderer);
 const audio = new AudioManager();
 const ui = new UIManager();
@@ -189,6 +190,14 @@ inputManager.on('menu', () => {
   if (engine.state === 0) return; // Already in menu (enum 0 is MENU)
   ui.show('pause'); // Esc triggers pause menu usually, not direct main menu
   audio.playSelect();
+});
+
+inputManager.on('toggleDebug', () => {
+  engine.toggleDebugHud();
+});
+
+inputManager.on('toggleVersion', () => {
+  engine.toggleVersionHud();
 });
 
 
