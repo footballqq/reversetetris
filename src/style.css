@@ -63,6 +63,8 @@ body {
   align-items: center;
   z-index: 10;
   transition: opacity 0.3s ease;
+  text-align: center;
+  /* gemini: 2025-12-18 Add centered text for all overlays */
 }
 
 .overlay.hidden {

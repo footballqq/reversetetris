@@ -171,22 +171,20 @@ export class Renderer {
             this.layout.gridHeight + 4
         );
 
-        // 3.5. Draw Ceiling Overlay (gemini: 2025-12-18 Always show glowing bar)
+        // 3.5. Draw Ceiling Overlay (gemini: 2025-12-18 Fixed: Calculate height relative to visible grid top)
         const ceilingRows = grid.ceilingRows;
         const ceilingHeight = ceilingRows * this.layout.cellSize;
 
         // Draw the dark area above the ceiling line
-        if (ceilingRows > 0) {
-            this.ctx.fillStyle = 'rgba(10, 10, 10, 0.85)'; // Much darker for "no entry" look
-            this.ctx.fillRect(
-                this.layout.gridX,
-                this.layout.gridY,
-                this.layout.gridWidth,
-                ceilingHeight
-            );
-        }
+        this.ctx.fillStyle = 'rgba(10, 10, 10, 0.85)';
+        this.ctx.fillRect(
+            this.layout.gridX,
+            this.layout.gridY,
+            this.layout.gridWidth,
+            ceilingHeight
+        );
 
-        // Always draw the Glowing Ceiling Bar (Indicator)
+        // Always draw the Glowing Ceiling Bar (Indicator) at the correct boundary
         const barY = this.layout.gridY + ceilingHeight;
         const time = performance.now() / 1000;
         const glowPulse = (Math.sin(time * 3) + 1) / 2; // Pulsing 0-1
@@ -204,13 +202,6 @@ export class Renderer {
         this.ctx.lineTo(this.layout.gridX + this.layout.gridWidth + 2, barY);
         this.ctx.stroke();
 
-        // Optional: Small "LIMIT" tag
-        if (this.layout.cellSize > 15) {
-            this.ctx.fillStyle = `rgba(255, 80, 80, ${0.4 + 0.4 * glowPulse})`;
-            this.ctx.font = 'bold 10px Arial';
-            this.ctx.textAlign = 'right';
-            this.ctx.fillText("CEILING", this.layout.gridX - 5, barY + 4);
-        }
         this.ctx.restore();
 
         // Draw Grid Cells

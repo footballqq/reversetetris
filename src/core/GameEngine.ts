@@ -347,14 +347,15 @@ export class GameEngine {
         const blocks = this.currentPiece.getBlocks();
         const spawnY = this.grid.getSpawnY();
         let finalY = spawnY;
+        let foundEntry = false;
 
-        // gemini: 2025-12-18 Unified: Search from spawnY down.
-        // This ensures the piece only lands below the ceiling, and prevents the 'spawn kill' bug.
+        // gemini: 2025-12-18 Unified: Search from spawnY down, allowing large shapes to pass the ceiling.
         for (let dy = spawnY; dy < Grid.TOTAL_ROWS; dy++) {
             if (this.grid.isValidPosition(blocks, this.activePiecePosition.x, dy)) {
                 finalY = dy;
+                foundEntry = true;
             } else {
-                break;
+                if (foundEntry) break;
             }
         }
 
@@ -384,6 +385,12 @@ export class GameEngine {
         const interval = this.getCeilingDropInterval();
         if (interval > 0 && this.data.piecesPlaced > 0 && this.data.piecesPlaced % interval === 0) {
             this.grid.lowerCeiling(1);
+            // gemini: 2025-12-18 Immediate check: did the drop just cover an existing block?
+            if (this.grid.isGameOver()) {
+                this.state = GameState.WIN;
+                this.emit('gameOver', 'win');
+                return;
+            }
         }
 
         this.emit('pieceLocked');
