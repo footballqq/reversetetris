@@ -126,6 +126,7 @@ export class AIController {
         let bestMove: MoveResult | null = null;
 
         const candidates: AIDecisionCandidate[] = this.traceEnabled ? [] : [];
+        const spawnY = grid.getSpawnY();
         const holesBeforeMap = this.computeHoleMap(grid);
 
         // Try all rotations (0-3)
@@ -137,14 +138,14 @@ export class AIController {
 
             // Find valid X range
             for (let x = -2; x < Grid.WIDTH + 2; x++) {
-                // Optimization: Start from valid spawn check
-                if (!grid.isValidPosition(blocks, x, 0)) {
+                // Optimization: Start from valid spawn check at the current dynamic spawn Y
+                if (!grid.isValidPosition(blocks, x, spawnY)) {
                     continue;
                 }
 
                 // Find lowest valid Y (Hard Drop)
                 let validY = -1;
-                for (let dy = 0; dy < Grid.TOTAL_ROWS; dy++) {
+                for (let dy = spawnY; dy < Grid.TOTAL_ROWS; dy++) {
                     if (grid.isValidPosition(blocks, x, dy)) {
                         validY = dy;
                     } else {
@@ -261,6 +262,26 @@ export class AIController {
             } else {
                 this.lastTrace = null;
             }
+        }
+
+        // gemini: 2025-12-18 Always return a move to allow the animation to play.
+        // If no move was found (spawn blocked), return a dummy move at spawn.
+        if (!bestMove) {
+            return {
+                x: 4,
+                rotation: 0,
+                score: -1000000,
+                linesCleared: 0,
+                aggregateHeight: 0,
+                maxHeight: 22,
+                holes: 0,
+                holesCreated: 0,
+                blockades: 0,
+                bumpiness: 0,
+                gameOverAfterMove: true,
+                edgeDistance: 0,
+                wellSums: 0
+            };
         }
 
         return bestMove;

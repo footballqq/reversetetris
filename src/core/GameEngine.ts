@@ -202,8 +202,8 @@ export class GameEngine {
         if (index < 0 || index >= this.nextPieces.length) return;
 
         this.currentPiece = this.nextPieces[index];
-        // Spawn position: Top middle
-        this.activePiecePosition = { x: 4, y: 0 };
+        // Spawn position: Top middle, just below the current ceiling
+        this.activePiecePosition = { x: 4, y: this.grid.getSpawnY() };
 
         this.emit('pieceSelected', this.currentPiece);
 
@@ -217,18 +217,14 @@ export class GameEngine {
         if (!this.currentPiece) return;
         const move = this.ai.findBestMove(this.grid, this.currentPiece, this.data.aiDifficulty);
 
+        // gemini: 2025-12-18 Even if move is technically a "top out", we proceed to animation.
+        // The win/loss will be determined after the piece is locked.
         if (move) {
             this.lastAiMove = move;
             this.updateDecisionLog();
             this.generateMoveQueue(move);
             this.state = GameState.AI_ANIMATING;
             this.animationTimer = 0;
-        } else {
-            // AI Failed - Top Out
-            this.lastAiMove = null;
-            this.updateDecisionLog();
-            this.state = GameState.WIN;
-            this.emit('gameOver', 'win');
         }
     }
 
@@ -349,8 +345,10 @@ export class GameEngine {
         if (!this.currentPiece) return;
 
         const blocks = this.currentPiece.getBlocks();
-        let finalY = -1;
-        for (let dy = 0; dy < Grid.TOTAL_ROWS; dy++) {
+        let finalY = this.activePiecePosition.y; // Default to current (even if blocked)
+
+        // Find ghost-style bottom
+        for (let dy = this.activePiecePosition.y; dy < Grid.TOTAL_ROWS; dy++) {
             if (this.grid.isValidPosition(blocks, this.activePiecePosition.x, dy)) {
                 finalY = dy;
             } else {
@@ -358,35 +356,34 @@ export class GameEngine {
             }
         }
 
-        if (finalY !== -1) {
-            this.activePiecePosition.y = finalY; // Visual snap
-            const id = PIECE_TYPE_TO_ID[this.currentPiece.type];
-            this.grid.lockPiece(blocks, this.activePiecePosition.x, finalY, id);
-            this.data.piecesPlaced++;
+        this.activePiecePosition.y = finalY; // Visual snap
+        const id = PIECE_TYPE_TO_ID[this.currentPiece.type];
 
-            const cleared = this.grid.clearLines();
-            if (cleared > 0) {
-                this.data.linesCleared += cleared;
-                this.emit('linesCleared', cleared);
-            }
+        // Lock it! (Grid will handle out-of-bounds or ceiling logic internally)
+        this.grid.lockPiece(blocks, this.activePiecePosition.x, finalY, id);
+        this.data.piecesPlaced++;
 
-            // Ceiling rule: lower ceiling every N placed pieces (difficulty dependent).
-            const interval = this.getCeilingDropInterval();
-            if (interval > 0 && this.data.piecesPlaced % interval === 0) {
-                this.grid.lowerCeiling(1);
-            }
-
-            this.emit('pieceLocked');
-            this.checkGameStatus();
-        } else {
-            // Determine why
-            this.state = GameState.WIN;
-            this.emit('gameOver', 'win');
+        const cleared = this.grid.clearLines();
+        if (cleared > 0) {
+            this.data.linesCleared += cleared;
+            this.emit('linesCleared', cleared);
         }
 
-        if (this.state === GameState.AI_ANIMATING) {
-            // End of turn
-            this.startTurn();
+        // Ceiling rule: lower ceiling every N placed pieces (difficulty dependent).
+        const interval = this.getCeilingDropInterval();
+        if (interval > 0 && this.data.piecesPlaced > 0 && this.data.piecesPlaced % interval === 0) {
+            this.grid.lowerCeiling(1);
+        }
+
+        this.emit('pieceLocked');
+
+        // gemini: 2025-12-18 Crucially, check win/loss ONLY after everything is finished.
+        this.checkGameStatus();
+
+        if (this.state !== GameState.WIN && this.state !== GameState.LOSE) {
+            if (this.state === GameState.AI_ANIMATING) {
+                this.startTurn();
+            }
         }
     }
 
@@ -415,6 +412,7 @@ export class GameEngine {
             this.data.level,
             this.data.linesCleared,
             this.data.targetLines,
+            this.data.piecesPlaced,
             this.data.aiDifficultyLevel,
             this.debugHudEnabled
                 ? {

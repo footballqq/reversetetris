@@ -34,6 +34,10 @@ export class Grid {
         return this._ceilingRows;
     }
 
+    public getSpawnY(): number {
+        return Grid.VISIBLE_START_ROW + this._ceilingRows;
+    }
+
     public lowerCeiling(rows: number = 1) {
         const next = Math.min(Grid.VISIBLE_ROWS, Math.max(0, this._ceilingRows + rows));
         this._ceilingRows = next;
@@ -120,9 +124,10 @@ export class Grid {
     }
 
     public isGameOver(): boolean {
-        // "Top out" means any locked block encroaches into the non-playable top area.
-        // This includes the hidden spawn buffer (rows 0-1) and any lowered ceiling rows.
-        const topBoundary = Grid.VISIBLE_START_ROW + this._ceilingRows; // first playable row index
+        // gemini: 2025-12-18 Adjusted Top-Out check to respect the descending ceiling.
+        // A game over occurs if any locked block is AT or ABOVE the current ceiling boundary.
+        // The spawn point is also shifted down with the ceiling.
+        const topBoundary = this.getSpawnY();
         for (let y = 0; y < topBoundary; y++) {
             if (this._grid[y].some(cell => cell !== 0)) return true;
         }

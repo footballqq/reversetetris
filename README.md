@@ -127,3 +127,38 @@ src/
 ## 📄 许可证
 
 MIT License
+
+npm run dev       # 开发模式，热更新，未编译（Vite/Webpack）
+npm run build     # 编译打包
+npm run preview   # 预览编译结果
+
+ npx serve .\dist
+
+# 在当前目录启动服务器
+serve
+
+# 指定目录
+serve ./dist
+
+# 指定端口
+serve -p 3000
+
+# 单页应用模式（所有路由指向 index.html）
+serve -s ./dist
+
+这是 Windows PowerShell 的 PATH 问题，npm 全局安装的包没有加入环境变量。
+解决方法
+方法 1：用 npx 运行（最简单）
+bashDownloadCopy codenpx serve
+方法 2：添加 npm 全局路径到 PATH
+先查看 npm 全局安装路径：
+bashDownloadCopy codenpm config get prefix
+然后把返回的路径（通常是 C:\Users\你的用户名\AppData\Roaming\npm）添加到系统环境变量 PATH 中。
+添加后重启终端即可。
+方法 3：用完整路径运行
+bashDownloadCopy code# 查看 serve 安装位置
+npm list -g serve
+
+# 直接运行
+& "$(npm config get prefix)\serve"
+建议先用 npx serve 快速解决，后续再处理 PATH 问题。

@@ -1,14 +1,13 @@
 {
-  "current_task": "11_coverage_check_algo 覆盖检测已完成",
+  "current_task": "彻底修复天花板导致的 AI 误判输掉问题",
   "last_changes": [
-    "src/ta_reports/providers/coverage.py",
-    "src/ta_reports/providers/__init__.py",
-    "tests/providers/test_coverage_checker.py",
-    "CODEx_TODO.md"
+    "src/core/Grid.ts",
+    "src/ai/AIController.ts",
+    "src/core/GameEngine.ts"
   ],
   "next_actions": [
-    "实现 ingestion plan 生成器（task 12），消费 Coverage + ProviderRouter",
-    "梳理 incremental/auto 模式下的 overlap 与 verify 逻辑"
+    "建议用户清除缓存并 npm run build",
+    "观察 AI 是否能正确在天花板下方生存"
   ],
-  "notes": "CoverageChecker 计算 min/max 并识别内部及首尾缺口，支持 allow_holes，pytest 通过。"
+  "notes": "定位到根本原因：AI 方块生成点固定在坐标 0，当天花板下降到第 2 行时，AI 生成的方块被天花板堵住无法下落，只能原地锁定，进而触发 Top Out。已将生成点改为动态跟随天花板，并同步更新了判定逻辑。"
 }

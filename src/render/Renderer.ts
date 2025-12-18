@@ -171,6 +171,48 @@ export class Renderer {
             this.layout.gridHeight + 4
         );
 
+        // 3.5. Draw Ceiling Overlay (gemini: 2025-12-18 Always show glowing bar)
+        const ceilingRows = grid.ceilingRows;
+        const ceilingHeight = ceilingRows * this.layout.cellSize;
+
+        // Draw the dark area above the ceiling line
+        if (ceilingRows > 0) {
+            this.ctx.fillStyle = 'rgba(40, 40, 40, 0.7)';
+            this.ctx.fillRect(
+                this.layout.gridX,
+                this.layout.gridY,
+                this.layout.gridWidth,
+                ceilingHeight
+            );
+        }
+
+        // Always draw the Glowing Ceiling Bar (Indicator)
+        const barY = this.layout.gridY + ceilingHeight;
+        const time = performance.now() / 1000;
+        const glowPulse = (Math.sin(time * 3) + 1) / 2; // Pulsing 0-1
+
+        this.ctx.save();
+        // Glow effect
+        this.ctx.shadowBlur = 8 + 4 * glowPulse;
+        this.ctx.shadowColor = '#ff3333';
+        this.ctx.strokeStyle = `rgba(255, 50, 50, ${0.7 + 0.3 * glowPulse})`;
+        this.ctx.lineWidth = 3;
+
+        this.ctx.beginPath();
+        // Extend slightly beyond grid for visibility
+        this.ctx.moveTo(this.layout.gridX - 2, barY);
+        this.ctx.lineTo(this.layout.gridX + this.layout.gridWidth + 2, barY);
+        this.ctx.stroke();
+
+        // Optional: Small "LIMIT" tag
+        if (this.layout.cellSize > 15) {
+            this.ctx.fillStyle = `rgba(255, 80, 80, ${0.4 + 0.4 * glowPulse})`;
+            this.ctx.font = 'bold 10px Arial';
+            this.ctx.textAlign = 'right';
+            this.ctx.fillText("CEILING", this.layout.gridX - 5, barY + 4);
+        }
+        this.ctx.restore();
+
         // Draw Grid Cells
         const data = grid.data;
         for (let y = this.VISIBLE_START_ROW; y < Grid.TOTAL_ROWS; y++) {
@@ -257,6 +299,9 @@ export class Renderer {
     }
 
     public drawPieceSelector(pieces: Piece[], selectedIndex: number) {
+        // gemini: 2025-12-18 Scale down pieces in selector to fit large shapes (6-block, cross etc.)
+        const selectorCellSize = Math.min(20, this.layout.cellSize * 0.7);
+
         // Draw Container Box
         this.ctx.strokeStyle = '#fff';
         this.ctx.lineWidth = 2;
@@ -295,14 +340,31 @@ export class Renderer {
             const blocks = piece.getBlocks();
             const color = piece.getColor();
 
+            // Calculate bounding box for centering
+            let minX = 0, maxX = 0, minY = 0, maxY = 0;
+            blocks.forEach(b => {
+                minX = Math.min(minX, b.x);
+                maxX = Math.max(maxX, b.x);
+                minY = Math.min(minY, b.y);
+                maxY = Math.max(maxY, b.y);
+            });
+            const pWidth = (maxX - minX + 1) * selectorCellSize;
+            const pHeight = (maxY - minY + 1) * selectorCellSize;
+            const offsetX = cx - pWidth / 2 - minX * selectorCellSize;
+            const offsetY = cy - pHeight / 2 - minY * selectorCellSize;
+
             for (const block of blocks) {
-                // block.x * CELL_SIZE is offset from center
-                // Center piece at cx, cy
-                this.drawCell(
-                    cx + block.x * this.layout.cellSize - this.layout.cellSize / 2,
-                    cy + block.y * this.layout.cellSize - this.layout.cellSize / 2,
-                    color
-                );
+                // Use a smaller version of drawCell logic or local sizing
+                const bx = offsetX + block.x * selectorCellSize;
+                const by = offsetY + block.y * selectorCellSize;
+                const size = selectorCellSize - 1;
+
+                this.ctx.fillStyle = color;
+                this.ctx.fillRect(bx, by, size, size);
+
+                // Simple bevel for small cells
+                this.ctx.fillStyle = 'rgba(255,255,255,0.2)';
+                this.ctx.fillRect(bx, by, size, size / 3);
             }
 
             // Key Hint
@@ -318,6 +380,7 @@ export class Renderer {
         level: number,
         lines: number,
         targetLines: number,
+        piecesPlaced: number,
         difficultyLevel?: string,
         debug?: {
             wellSums: number;
@@ -355,25 +418,29 @@ export class Renderer {
             // Goal/progress: player loses if AI reaches targetLines.
             this.drawText("AI LINES", startX + 200, startY, 12, '#aaa');
             this.drawText(`${lines}/${targetLines}`, startX + 200, startY + 20, 20, '#fff');
+
+            this.drawText("BLOCKS", startX + 300, startY, 12, '#aaa');
+            this.drawText(`${piecesPlaced}`, startX + 300, startY + 20, 20, '#fff');
+
             this.drawText("AI wins when it reaches the target.", startX, startY + 48, 12, '#666');
             this.drawText("You win if AI tops out.", startX, startY + 64, 12, '#666');
 
             if (difficultyLevel) {
-                this.drawText("DIFF", startX + 300, startY, 12, '#aaa');
-                this.drawText(`${difficultyLevel.toUpperCase()}`, startX + 300, startY + 20, 18, '#fff');
+                this.drawText("DIFF", startX + 400, startY, 12, '#aaa');
+                this.drawText(`${difficultyLevel.toUpperCase()}`, startX + 400, startY + 20, 18, '#fff');
             }
 
             if (debug) {
-                this.drawText("WELLS", startX + 420, startY, 12, '#aaa');
-                this.drawText(`${debug.wellSums}`, startX + 420, startY + 20, 18, '#fff');
+                this.drawText("WELLS", startX + 480, startY, 12, '#aaa');
+                this.drawText(`${debug.wellSums}`, startX + 480, startY + 20, 18, '#fff');
 
-                this.drawText("HOLES", startX + 470, startY, 12, '#aaa');
-                this.drawText(`${debug.holes}`, startX + 470, startY + 20, 18, '#fff');
+                this.drawText("HOLES", startX + 530, startY, 12, '#aaa');
+                this.drawText(`${debug.holes}`, startX + 530, startY + 20, 18, '#fff');
             }
 
             if (version) {
-                this.drawText("VER", startX + 520, startY, 12, '#666');
-                this.drawText(version, startX + 520, startY + 20, 12, '#888');
+                this.drawText("VER", startX + 580, startY, 12, '#666');
+                this.drawText(version, startX + 580, startY + 20, 12, '#888');
             }
         } else {
             // Landscape: Right side
@@ -390,17 +457,21 @@ export class Renderer {
             // Goal/progress: player loses if AI reaches targetLines.
             this.drawText("AI LINES", startX, startY + 180, 14, '#aaa');
             this.drawText(`${lines}/${targetLines}`, startX, startY + 210, 24, '#fff');
-            this.drawText("AI wins at target lines.", startX, startY + 238, 12, '#666');
-            this.drawText("You win if AI tops out.", startX, startY + 256, 12, '#666');
+
+            this.drawText("BLOCKS", startX, startY + 260, 14, '#aaa');
+            this.drawText(`${piecesPlaced}`, startX, startY + 290, 24, '#fff');
+
+            this.drawText("AI wins at target lines.", startX, startY + 318, 12, '#666');
+            this.drawText("You win if AI tops out.", startX, startY + 336, 12, '#666');
 
             if (difficultyLevel) {
                 // Requested: show difficulty under LINES
-                this.drawText("DIFFICULTY", startX, startY + 280, 14, '#aaa');
-                this.drawText(`${difficultyLevel.toUpperCase()}`, startX, startY + 310, 22, '#fff');
+                this.drawText("DIFFICULTY", startX, startY + 360, 14, '#aaa');
+                this.drawText(`${difficultyLevel.toUpperCase()}`, startX, startY + 390, 22, '#fff');
             }
 
             if (debug) {
-                const y0 = startY + 350;
+                const y0 = startY + 430;
                 this.drawText(`HOLES ${debug.holes} (+${debug.holesCreated})`, startX, y0, 14, '#aaa');
                 this.drawText(`BLOCK ${debug.blockades}   WELLS ${debug.wellSums}`, startX, y0 + 24, 14, '#aaa');
 
