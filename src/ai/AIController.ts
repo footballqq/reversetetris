@@ -67,6 +67,7 @@ export interface MoveResult {
     score: number;
     linesCleared: number;
     aggregateHeight: number;
+    maxHeight: number;
     holes: number; // classic covered holes
     holesCreated: number;
     blockades: number;
@@ -190,6 +191,7 @@ export class AIController {
                         score,
                         linesCleared: evalResult.linesCleared,
                         aggregateHeight: evalResult.aggregateHeight,
+                        maxHeight: evalResult.maxHeight,
                         holes: evalResult.holes,
                         holesCreated: evalResult.holesCreated,
                         blockades: evalResult.blockades,
@@ -208,6 +210,7 @@ export class AIController {
                         score,
                         linesCleared: evalResult.linesCleared,
                         aggregateHeight: evalResult.aggregateHeight,
+                        maxHeight: evalResult.maxHeight,
                         holes: evalResult.holes,
                         holesCreated: evalResult.holesCreated,
                         blockades: evalResult.blockades,
@@ -392,6 +395,7 @@ export class AIController {
         score: number;
         linesCleared: number;
         aggregateHeight: number;
+        maxHeight: number;
         holes: number;
         holesCreated: number;
         blockades: number;
@@ -407,6 +411,7 @@ export class AIController {
 
         // Metrics
         const aggregateHeight = simGrid.getAggregateHeight();
+        const maxHeight = simGrid.getHeight();
         const wellSums = simGrid.getWellSums();
         const holes = simGrid.countHoles();
         const holesAfterMap = this.computeHoleMap(simGrid);
@@ -433,7 +438,7 @@ export class AIController {
         score += wellSums * wellsWeight;
         score += bumpiness * weights.bumpinessWeight;
 
-        return { score, linesCleared: lines, aggregateHeight, holes, holesCreated, blockades, wellSums, bumpiness, gameOverAfterMove };
+        return { score, linesCleared: lines, aggregateHeight, maxHeight, holes, holesCreated, blockades, wellSums, bumpiness, gameOverAfterMove };
     }
 
     private computeHoleMap(grid: Grid): boolean[][] {

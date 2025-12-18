@@ -219,23 +219,27 @@ export class GameEngine {
         const gridJson = JSON.stringify(this.grid.data);
 
         if (!trace) {
-            return `${header}\n\n(no trace available)\n\ngrid=${gridJson}\n`;
+            const currentPiece = this.currentPiece ? this.currentPiece.type : '(none)';
+            const next = this.nextPieces?.map(p => p.type).join(',') ?? '';
+            return `${header}\ncurrentPiece=${currentPiece}\nnextPieces=[${next}]\n\n(no trace available)\n\ngrid=${gridJson}\n`;
         }
 
         const flags = `lexicographic=${trace.difficultyFlags.lexicographic} preferEdges=${trace.difficultyFlags.preferEdges}`;
         const weights = JSON.stringify(trace.weights);
+        const decidedBy = trace.decidedBy ? `decidedBy=${trace.decidedBy.key} best=${trace.decidedBy.best} second=${trace.decidedBy.second}` : `decidedBy=(tie)`;
+        const order = `order=${trace.decisionOrder.join(' > ')}`;
 
         const fmt = (c: any) =>
             `x=${c.x} r=${c.rotation} y=${c.y} ` +
             `H=${c.holes}(+${c.holesCreated}) B=${c.blockades} W=${c.wellSums} ` +
-            `L=${c.linesCleared} AH=${c.aggregateHeight} BU=${c.bumpiness} E=${c.edgeDistance} ` +
+            `L=${c.linesCleared} MH=${c.maxHeight} AH=${c.aggregateHeight} BU=${c.bumpiness} E=${c.edgeDistance} ` +
             `S=${Math.round(c.score * 100) / 100}` +
             (c.gameOverAfterMove ? ' TOP_OUT' : '');
 
         const best = `best: ${trace.pieceType} ${fmt(trace.best)}`;
         const top = trace.top.map((c, i) => `${i + 1}. ${trace.pieceType} ${fmt(c)}`).join('\n');
 
-        return `${header}\n${flags}\nweights=${weights}\n\n${best}\n\ntop(${trace.top.length}/${trace.totalCandidates}):\n${top}\n\ngrid=${gridJson}\n`;
+        return `${header}\n${flags}\n${order}\n${decidedBy}\nweights=${weights}\n\n${best}\n\ntop(${trace.top.length}/${trace.totalCandidates}):\n${top}\n\ngrid=${gridJson}\n`;
     }
 
     private generateMoveQueue(target: { x: number, rotation: number }) {

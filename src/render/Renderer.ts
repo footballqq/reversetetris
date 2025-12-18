@@ -355,6 +355,8 @@ export class Renderer {
             // Goal/progress: player loses if AI reaches targetLines.
             this.drawText("AI LINES", startX + 200, startY, 12, '#aaa');
             this.drawText(`${lines}/${targetLines}`, startX + 200, startY + 20, 20, '#fff');
+            this.drawText("AI wins when it reaches the target.", startX, startY + 48, 12, '#666');
+            this.drawText("You win if AI tops out.", startX, startY + 64, 12, '#666');
 
             if (difficultyLevel) {
                 this.drawText("DIFF", startX + 300, startY, 12, '#aaa');
@@ -388,15 +390,17 @@ export class Renderer {
             // Goal/progress: player loses if AI reaches targetLines.
             this.drawText("AI LINES", startX, startY + 180, 14, '#aaa');
             this.drawText(`${lines}/${targetLines}`, startX, startY + 210, 24, '#fff');
+            this.drawText("AI wins at target lines.", startX, startY + 238, 12, '#666');
+            this.drawText("You win if AI tops out.", startX, startY + 256, 12, '#666');
 
             if (difficultyLevel) {
                 // Requested: show difficulty under LINES
-                this.drawText("DIFFICULTY", startX, startY + 250, 14, '#aaa');
-                this.drawText(`${difficultyLevel.toUpperCase()}`, startX, startY + 280, 22, '#fff');
+                this.drawText("DIFFICULTY", startX, startY + 280, 14, '#aaa');
+                this.drawText(`${difficultyLevel.toUpperCase()}`, startX, startY + 310, 22, '#fff');
             }
 
             if (debug) {
-                const y0 = startY + 320;
+                const y0 = startY + 350;
                 this.drawText(`HOLES ${debug.holes} (+${debug.holesCreated})`, startX, y0, 14, '#aaa');
                 this.drawText(`BLOCK ${debug.blockades}   WELLS ${debug.wellSums}`, startX, y0 + 24, 14, '#aaa');
 
