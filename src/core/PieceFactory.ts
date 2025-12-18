@@ -16,9 +16,10 @@ export class PieceFactory {
     private static bag: PieceType[] = [];
 
     // 7-bag randomizer
-    public static createRandom(): Piece {
-        // 1% Chance for Special Piece
-        if (Math.random() < 0.01) {
+    public static createRandom(options?: { specialChance?: number }): Piece {
+        const specialChance = options?.specialChance ?? 0.01;
+        // Chance for Special Piece
+        if (Math.random() < specialChance) {
             const specialTypes = [PieceType.LONG_I, PieceType.CROSS, PieceType.SQUARE_HOLLOW];
             const randomSpecial = specialTypes[Math.floor(Math.random() * specialTypes.length)];
             return new Piece(randomSpecial);
@@ -36,10 +37,10 @@ export class PieceFactory {
     // or we can consume from bag.
     // For "User selection", usually we just want n random pieces.
     // We can use the bag to ensure variety over time.
-    public static createRandomSet(count: number): Piece[] {
+    public static createRandomSet(count: number, options?: { specialChance?: number }): Piece[] {
         const pieces: Piece[] = [];
         for (let i = 0; i < count; i++) {
-            pieces.push(this.createRandom());
+            pieces.push(this.createRandom(options));
         }
         return pieces;
     }

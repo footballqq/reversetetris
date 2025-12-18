@@ -157,10 +157,44 @@ export class GameEngine {
     }
 
     private startTurn() {
-        this.nextPieces = PieceFactory.createRandomSet(3);
+        this.nextPieces = PieceFactory.createRandomSet(3, { specialChance: this.getSpecialChanceForDifficulty() });
         this.state = GameState.SELECTING;
         this.emit('stateChange', this.state);
         this.emit('nextPieces', this.nextPieces);
+    }
+
+    private getSpecialChanceForDifficulty(): number {
+        // Requested: EASY 10%, then each difficulty reduces by 2%.
+        // easy=10%, normal=8%, hard=6%, god=4%
+        switch (this.data.aiDifficultyLevel) {
+            case 'easy':
+                return 0.10;
+            case 'normal':
+                return 0.08;
+            case 'hard':
+                return 0.06;
+            case 'god':
+                return 0.04;
+            default:
+                return 0.01;
+        }
+    }
+
+    private getCeilingDropInterval(): number {
+        // Requested: EASY every 10 pieces; each difficulty increases interval by 5 pieces.
+        // easy=10, normal=15, hard=20, god=25
+        switch (this.data.aiDifficultyLevel) {
+            case 'easy':
+                return 10;
+            case 'normal':
+                return 15;
+            case 'hard':
+                return 20;
+            case 'god':
+                return 25;
+            default:
+                return 0;
+        }
     }
 
     public selectPiece(index: number) {
@@ -334,6 +368,12 @@ export class GameEngine {
             if (cleared > 0) {
                 this.data.linesCleared += cleared;
                 this.emit('linesCleared', cleared);
+            }
+
+            // Ceiling rule: lower ceiling every N placed pieces (difficulty dependent).
+            const interval = this.getCeilingDropInterval();
+            if (interval > 0 && this.data.piecesPlaced % interval === 0) {
+                this.grid.lowerCeiling(1);
             }
 
             this.emit('pieceLocked');

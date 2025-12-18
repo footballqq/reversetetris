@@ -12,6 +12,10 @@ export class Grid {
     public static readonly VISIBLE_ROWS = 20;
 
     private _grid: number[][];
+    private _ceilingRows: number = 0; // Number of blocked rows starting from the top of the visible area
+
+    // Rows 0-1 are hidden buffer for spawn; visible area starts at row 2.
+    public static readonly VISIBLE_START_ROW = 2;
 
     constructor(presetGrid?: number[][]) {
         if (presetGrid) {
@@ -26,11 +30,26 @@ export class Grid {
         return this._grid;
     }
 
+    public get ceilingRows(): number {
+        return this._ceilingRows;
+    }
+
+    public lowerCeiling(rows: number = 1) {
+        const next = Math.min(Grid.VISIBLE_ROWS, Math.max(0, this._ceilingRows + rows));
+        this._ceilingRows = next;
+    }
+
+    private isCeilingRow(y: number): boolean {
+        // Ceiling blocks the top N visible rows: [VISIBLE_START_ROW, VISIBLE_START_ROW + N - 1]
+        return y >= Grid.VISIBLE_START_ROW && y < Grid.VISIBLE_START_ROW + this._ceilingRows;
+    }
+
     // Check if cell is empty
     // y is index from top (0) to bottom (TOTAL_ROWS - 1)
     public isCellEmpty(x: number, y: number): boolean {
         if (x < 0 || x >= Grid.WIDTH || y >= Grid.TOTAL_ROWS) return false; // Out of bounds is not "empty" (it's a wall or floor)
         if (y < 0) return true; // Above board is empty
+        if (this.isCeilingRow(y)) return false;
         return this._grid[y][x] === 0;
     }
 
@@ -43,6 +62,9 @@ export class Grid {
 
             // Check bounds
             if (targetX < 0 || targetX >= Grid.WIDTH || targetY >= Grid.TOTAL_ROWS) {
+                return false;
+            }
+            if (targetY >= 0 && this.isCeilingRow(targetY)) {
                 return false;
             }
 
@@ -63,6 +85,7 @@ export class Grid {
             const targetY = offsetY + block.y;
 
             if (targetX >= 0 && targetX < Grid.WIDTH && targetY >= 0 && targetY < Grid.TOTAL_ROWS) {
+                if (this.isCeilingRow(targetY)) continue;
                 this._grid[targetY][targetX] = typeId;
             }
         }
@@ -97,16 +120,13 @@ export class Grid {
     }
 
     public isGameOver(): boolean {
-        // Check if any block exists in the top hidden area that shouldn't be there locked
-        // Or if a new piece cannot spawn. 
-        // Usually logic: if locked blocks exist above visible area.
-        // Here we have TOTAL_ROWS = 22, VISIBLE_ROWS = 20.
-        // So usually rows 0-1 are hidden.
-        // If any block is locked in row 0 or 1, is it game over?
-        // Rules vary. Let's assume if any block is in the very top row (0), it's close to top out.
-        // T02 requirement: "isGameOver(): 检测是否触顶".
-        // Let's check row 0 and 1.
-        return this._grid[0].some(cell => cell !== 0) || this._grid[1].some(cell => cell !== 0);
+        // "Top out" means any locked block encroaches into the non-playable top area.
+        // This includes the hidden spawn buffer (rows 0-1) and any lowered ceiling rows.
+        const topBoundary = Grid.VISIBLE_START_ROW + this._ceilingRows; // first playable row index
+        for (let y = 0; y < topBoundary; y++) {
+            if (this._grid[y].some(cell => cell !== 0)) return true;
+        }
+        return false;
     }
 
     // AI Helper: Get column height (distance from bottom to highest block) -> Actually distance from top
@@ -224,6 +244,7 @@ export class Grid {
     public clone(): Grid {
         const newGrid = new Grid();
         newGrid._grid = this._grid.map(row => [...row]);
+        newGrid._ceilingRows = this._ceilingRows;
         return newGrid;
     }
 }
