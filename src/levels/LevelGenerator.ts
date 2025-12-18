@@ -6,45 +6,38 @@ export class LevelGenerator {
 
     public static generateLevel(id: number): LevelConfig {
         let diff: AIDifficultyLevel = 'easy';
-        let targetLines = 12;
-        let speed = 500;
+        let speed = 800;
         let initialGrid: number[][] | undefined = undefined;
         let pieceChoices = 3;
 
+        // 1. Target Lines: 50 at Level 1, decreasing to 30.
+        // Formula: Start at 50, reduce 1 per level until 30.
+        let targetLines = Math.max(30, 50 - (id - 1));
+
+        // 2. AI Difficulty and Speed
         if (id <= 10) {
             diff = 'easy';
-            // Give the player more time to learn the "feed the AI" strategy.
-            targetLines = 10 + Math.floor(id / 2); // 10-15
-            speed = 800 - (id * 20); // 780 - 600
-        } else if (id <= 30) {
+            speed = 800 - (id * 20);
+        } else if (id <= 25) {
             diff = 'normal';
-            targetLines = 17 + Math.floor((id - 10) / 2); // 17-27
-            speed = 600 - ((id - 10) * 10); // 600-400
-        } else if (id <= 70) {
+            speed = 600 - ((id - 10) * 15);
+        } else if (id <= 50) {
             diff = 'hard';
-            targetLines = 30 + Math.floor((id - 30) / 2); // 30-50
-            speed = 400 - ((id - 30) * 5); // 400-200
-
-            // Add Garbage lines starting level 31
-            initialGrid = this.generateGarbageGrid(Math.min(10, Math.floor((id - 20) / 5)));
+            speed = 400 - ((id - 25) * 8);
         } else {
             diff = 'god';
-            targetLines = 55 + (id - 70); // 55-85
-            speed = 200; // Fast
-            initialGrid = this.generateGarbageGrid(8 + Math.floor((id - 70) / 5));
+            speed = 200;
         }
 
-        // Piece Choices upgrade at level 20?
-        if (id > 50) pieceChoices = 4; // Harder for player if AI is smart? 
-        // Wait, more choices = Player has more options to screw AI? Or easier for AI?
-        // User said: "如果买断游戏可以4个方块选择1个" -> "Premium feature".
-        // Let's stick to 3 for standard levels.
-
-        // Boss Levels
-        if (id % 10 === 0) {
-            targetLines += 10; // Eliminate more to survive
-            // Boss Preset: maybe specific pattern?
+        // 3. Garbage Lines: 1-5(5), 6-10(4), 11-15(3), 16-20(2), 21-25(1), 26+(0)
+        // Formula: start at 5, decrease 1 every 5 levels.
+        const garbageLines = Math.max(0, 6 - Math.ceil(id / 5));
+        if (garbageLines > 0) {
+            initialGrid = this.generateGarbageGrid(garbageLines);
         }
+
+        // Piece Choices upgrade for very late game Boss levels?
+        // Let's keep it 3 for now as per user request.
 
         return {
             id,
