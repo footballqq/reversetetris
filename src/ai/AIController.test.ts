@@ -131,10 +131,9 @@ describe('AIController', () => {
         // Realistically this is "Game Over", but finding move might fail.
         // Or if we block spawn area?
         // AI logic checks "isValidPosition" at y=0.
-        // If we fill y=0:
-        const id = 1;
-        for (let x = 0; x < 10; x++) {
-            grid.lockPiece([{ x: 0, y: 0 }], x, 0, id);
+        // Fill the ENTIRE grid to ensure no move is possible
+        for (let y = 0; y < Grid.TOTAL_ROWS; y++) {
+            grid.data[y].fill(1);
         }
 
         const piece = new Piece(PieceType.O);

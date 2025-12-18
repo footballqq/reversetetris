@@ -68,19 +68,21 @@ export class Renderer {
 
         if (isPortrait) {
             // Portrait: Candidates at very top, Grid below
-            this.layout.selectionY = 10;
-            const gridStartY = this.layout.selectionY + this.layout.selectionHeight + 10; // 10 + 70 + 10 = 90
+            this.layout.selectionY = 6;
+            this.layout.selectionHeight = 58;
+            const gridStartY = this.layout.selectionY + this.layout.selectionHeight + 10;
 
-            // Available height for grid (leave 50px at bottom for HUD)
-            const availableHeight = this.height - gridStartY - 60;
-            const availableWidth = this.width - 20; // 10px margin each side
+            // Available height for grid (leave space for the stacked HUD)
+            // Reduced overhead to maximize grid size
+            const availableHeight = this.height - gridStartY - 105;
+            const availableWidth = this.width - 12; // Minimal 6px margin
 
             // Calculate cell size
             const maxCellH = Math.floor(availableHeight / rows);
             const maxCellW = Math.floor(availableWidth / cols);
 
             let cell = Math.min(maxCellH, maxCellW);
-            cell = Math.min(cell, 35);
+            cell = Math.min(cell, 48); // Allow much larger cells on big phones
             cell = Math.max(cell, 12);
 
             this.layout.cellSize = cell;
@@ -395,43 +397,50 @@ export class Renderer {
         let startX, startY;
 
         if (this.layout.isPortrait) {
-            // Portrait: Bottom
+            // Portrait: Bottom (Compact Stacked Layout)
             startX = this.layout.gridX;
-            startY = this.layout.gridY + this.layout.gridHeight + 20;
+            startY = this.layout.gridY + this.layout.gridHeight + 16;
 
-            // Horizontal layout below grid
-            this.drawText("SCORE", startX, startY, 12, '#aaa');
-            this.drawText(`${score}`, startX, startY + 20, 20, '#fff');
+            const rowHeight = 38;
+            const colWidth = Math.floor(this.layout.gridWidth / 3);
 
-            this.drawText("LEVEL", startX + 100, startY, 12, '#aaa');
-            this.drawText(`${level}`, startX + 100, startY + 20, 20, '#fff');
+            // Row 1: Primary Metrics
+            this.drawText("SCORE", startX, startY, 11, '#aaa');
+            this.drawText(`${score}`, startX, startY + 16, 17, '#fff');
 
-            // Goal/progress: player loses if AI reaches targetLines.
-            this.drawText("AI LINES", startX + 200, startY, 12, '#aaa');
-            this.drawText(`${lines}/${targetLines}`, startX + 200, startY + 20, 20, '#fff');
+            this.drawText("LEVEL", startX + colWidth, startY, 11, '#aaa');
+            this.drawText(`${level}`, startX + colWidth, startY + 16, 17, '#fff');
 
-            this.drawText("BLOCKS", startX + 300, startY, 12, '#aaa');
-            this.drawText(`${piecesPlaced}`, startX + 300, startY + 20, 20, '#fff');
+            this.drawText("BLOCKS", startX + colWidth * 2, startY, 11, '#aaa');
+            this.drawText(`${piecesPlaced}`, startX + colWidth * 2, startY + 16, 17, '#fff');
 
-            this.drawText("AI wins when it reaches the target.", startX, startY + 48, 12, '#666');
-            this.drawText("You win if AI tops out.", startX, startY + 64, 12, '#666');
+            // Row 2: Progress & Difficulty
+            const row2Y = startY + rowHeight;
+            this.drawText("AI LINES", startX, row2Y, 11, '#aaa');
+            this.drawText(`${lines}/${targetLines}`, startX, row2Y + 16, 17, '#fff');
 
             if (difficultyLevel) {
-                this.drawText("DIFF", startX + 400, startY, 12, '#aaa');
-                this.drawText(`${difficultyLevel.toUpperCase()}`, startX + 400, startY + 20, 18, '#fff');
+                this.drawText("DIFFICULTY", startX + colWidth, row2Y, 10, '#aaa');
+                this.drawText(`${difficultyLevel.toUpperCase()}`, startX + colWidth, row2Y + 16, 15, '#fff');
             }
 
-            if (debug) {
-                this.drawText("WELLS", startX + 480, startY, 12, '#aaa');
-                this.drawText(`${debug.wellSums}`, startX + 480, startY + 20, 18, '#fff');
-
-                this.drawText("HOLES", startX + 530, startY, 12, '#aaa');
-                this.drawText(`${debug.holes}`, startX + 530, startY + 20, 18, '#fff');
-            }
+            // Row 3: Legend / Hints
+            const footerY = row2Y + rowHeight + 10;
+            this.drawText("AI wins at target. You win if AI tops out.", startX, footerY, 10, '#666');
 
             if (version) {
-                this.drawText("VER", startX + 580, startY, 12, '#666');
-                this.drawText(version, startX + 580, startY + 20, 12, '#888');
+                // Version at bottom right
+                this.ctx.textAlign = 'right';
+                this.drawText(version, this.layout.gridX + this.layout.gridWidth, footerY + 12, 10, '#444');
+                this.ctx.textAlign = 'left';
+            }
+
+            // Debug (mini overlay in specific cases)
+            if (debug) {
+                this.ctx.textAlign = 'right';
+                const debugX = this.layout.gridX + this.layout.gridWidth;
+                this.drawText(`H:${debug.holes} W:${debug.wellSums}`, debugX, row2Y + 16, 10, '#888');
+                this.ctx.textAlign = 'left';
             }
         } else {
             // Landscape: Right side
