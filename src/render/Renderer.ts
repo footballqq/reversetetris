@@ -317,6 +317,7 @@ export class Renderer {
         score: number,
         level: number,
         lines: number,
+        targetLines: number,
         difficultyLevel?: string,
         debug?: {
             wellSums: number;
@@ -351,8 +352,9 @@ export class Renderer {
             this.drawText("LEVEL", startX + 100, startY, 12, '#aaa');
             this.drawText(`${level}`, startX + 100, startY + 20, 20, '#fff');
 
-            this.drawText("LINES", startX + 200, startY, 12, '#aaa');
-            this.drawText(`${lines}`, startX + 200, startY + 20, 20, '#fff');
+            // Goal/progress: player loses if AI reaches targetLines.
+            this.drawText("AI LINES", startX + 200, startY, 12, '#aaa');
+            this.drawText(`${lines}/${targetLines}`, startX + 200, startY + 20, 20, '#fff');
 
             if (difficultyLevel) {
                 this.drawText("DIFF", startX + 300, startY, 12, '#aaa');
@@ -383,8 +385,9 @@ export class Renderer {
             this.drawText("LEVEL", startX, startY + 100, 14, '#aaa');
             this.drawText(`${level}`, startX, startY + 130, 24, '#fff');
 
-            this.drawText("LINES", startX, startY + 180, 14, '#aaa');
-            this.drawText(`${lines}`, startX, startY + 210, 24, '#fff');
+            // Goal/progress: player loses if AI reaches targetLines.
+            this.drawText("AI LINES", startX, startY + 180, 14, '#aaa');
+            this.drawText(`${lines}/${targetLines}`, startX, startY + 210, 24, '#fff');
 
             if (difficultyLevel) {
                 // Requested: show difficulty under LINES

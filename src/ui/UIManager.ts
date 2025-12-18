@@ -131,6 +131,11 @@ export class UIManager {
         const copyBtn = panel.querySelector('#ai-log-copy') as HTMLButtonElement | null;
         copyBtn?.addEventListener('click', async () => {
             const text = this.aiLogTextArea?.value ?? '';
+            // Per request: select-all first so user can see what's being copied (and can manually copy if clipboard fails).
+            if (this.aiLogTextArea) {
+                this.aiLogTextArea.focus();
+                this.aiLogTextArea.select();
+            }
             try {
                 await navigator.clipboard.writeText(text);
                 copyBtn.textContent = 'COPIED';

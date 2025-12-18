@@ -47,7 +47,7 @@ export class GameEngine {
     public versionHudEnabled: boolean = true;
     public appVersion: string = '';
     private difficultyOverride: { level: string; weights: AIWeights; speedMs: number } | null = null;
-    private decisionLogEnabled: boolean = false;
+    private decisionLogVisible: boolean = false;
     private lastDecisionLogText: string = '';
 
     // AI Animation
@@ -65,6 +65,8 @@ export class GameEngine {
         this.renderer = renderer;
         this.grid = new Grid();
         this.ai = new AIController();
+        // Always collect traces so you can open the log panel later and still copy the last decision.
+        this.ai.setTraceEnabled(true, 12);
         this.data = {
             level: 1,
             linesCleared: 0,
@@ -197,10 +199,11 @@ export class GameEngine {
     }
 
     private updateDecisionLog() {
-        if (!this.decisionLogEnabled) return;
         const trace = this.ai.getLastTrace();
         this.lastDecisionLogText = this.formatDecisionLog(trace);
-        this.emit('aiTrace', this.lastDecisionLogText);
+        if (this.decisionLogVisible) {
+            this.emit('aiTrace', this.lastDecisionLogText);
+        }
     }
 
     private formatDecisionLog(trace: AIDecisionTrace | null): string {
@@ -367,6 +370,7 @@ export class GameEngine {
             this.data.linesCleared * 100,
             this.data.level,
             this.data.linesCleared,
+            this.data.targetLines,
             this.data.aiDifficultyLevel,
             this.debugHudEnabled
                 ? {
@@ -432,12 +436,9 @@ export class GameEngine {
         this.versionHudEnabled = !this.versionHudEnabled;
     }
 
-    public setDecisionLogEnabled(enabled: boolean) {
-        this.decisionLogEnabled = enabled;
-        this.ai.setTraceEnabled(enabled, 12);
-        if (enabled) {
-            this.updateDecisionLog();
-        }
+    public setDecisionLogVisible(visible: boolean) {
+        this.decisionLogVisible = visible;
+        if (visible) this.emit('aiTrace', this.lastDecisionLogText);
     }
 
     public getLastDecisionLog(): string {

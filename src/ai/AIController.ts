@@ -90,6 +90,8 @@ export interface AIDecisionTrace {
     best: AIDecisionCandidate;
     top: AIDecisionCandidate[];
     totalCandidates: number;
+    decisionOrder: string[];
+    decidedBy?: { key: string; best: number | boolean; second: number | boolean };
 }
 
 export class AIController {
@@ -123,9 +125,7 @@ export class AIController {
         let bestMove: MoveResult | null = null;
 
         const candidates: AIDecisionCandidate[] = this.traceEnabled ? [] : [];
-        const holesBeforeMap = this.traceEnabled || (weights.lexicographic ?? false)
-            ? this.computeHoleMap(grid)
-            : this.computeHoleMap(grid);
+        const holesBeforeMap = this.computeHoleMap(grid);
 
         // Try all rotations (0-3)
         for (let r = 0; r < 4; r++) {
@@ -220,19 +220,44 @@ export class AIController {
             }
         }
 
-        if (this.traceEnabled && bestMove) {
-            const bestCandidate = candidates.find(c => c.x === bestMove.x && c.rotation === bestMove.rotation) ?? candidates[0];
+        if (this.traceEnabled) {
             const sorted = [...candidates].sort((a, b) => this.compareCandidates(a, b, weights));
-            this.lastTrace = {
-                pieceType: piece.type,
-                difficultyFlags: { lexicographic: !!weights.lexicographic, preferEdges: !!weights.preferEdges },
-                weights,
-                best: bestCandidate,
-                top: sorted.slice(0, this.traceTopK),
-                totalCandidates: candidates.length,
-            };
-        } else {
-            this.lastTrace = null;
+            const bestCandidate = sorted[0];
+            const secondCandidate = sorted[1];
+
+            const decisionOrder = weights.lexicographic
+                ? [
+                    'topOut',
+                    'holes',
+                    'holesCreated',
+                    'blockades',
+                    'wellSums',
+                    'linesCleared',
+                    'aggregateHeight',
+                    'bumpiness',
+                    ...(weights.preferEdges ? ['edgeDistance'] : []),
+                    'score',
+                ]
+                : ['score'];
+
+            const decidedBy = (bestCandidate && secondCandidate)
+                ? this.getDecisionReason(bestCandidate, secondCandidate, weights)
+                : undefined;
+
+            if (bestCandidate) {
+                this.lastTrace = {
+                    pieceType: piece.type,
+                    difficultyFlags: { lexicographic: !!weights.lexicographic, preferEdges: !!weights.preferEdges },
+                    weights,
+                    best: bestCandidate,
+                    top: sorted.slice(0, this.traceTopK),
+                    totalCandidates: candidates.length,
+                    decisionOrder,
+                    decidedBy,
+                };
+            } else {
+                this.lastTrace = null;
+            }
         }
 
         return bestMove;
@@ -254,6 +279,31 @@ export class AIController {
         if (a.bumpiness !== b.bumpiness) return a.bumpiness - b.bumpiness;
         if (weights.preferEdges && a.edgeDistance !== b.edgeDistance) return a.edgeDistance - b.edgeDistance;
         return b.score - a.score;
+    }
+
+    private getDecisionReason(
+        best: AIDecisionCandidate,
+        second: AIDecisionCandidate,
+        weights: AIWeights
+    ): { key: string; best: number | boolean; second: number | boolean } | undefined {
+        if (!weights.lexicographic) {
+            if (best.score !== second.score) return { key: 'score', best: best.score, second: second.score };
+            return undefined;
+        }
+
+        if (best.gameOverAfterMove !== second.gameOverAfterMove) {
+            return { key: 'topOut', best: best.gameOverAfterMove, second: second.gameOverAfterMove };
+        }
+        if (best.holes !== second.holes) return { key: 'holes', best: best.holes, second: second.holes };
+        if (best.holesCreated !== second.holesCreated) return { key: 'holesCreated', best: best.holesCreated, second: second.holesCreated };
+        if (best.blockades !== second.blockades) return { key: 'blockades', best: best.blockades, second: second.blockades };
+        if (best.wellSums !== second.wellSums) return { key: 'wellSums', best: best.wellSums, second: second.wellSums };
+        if (best.linesCleared !== second.linesCleared) return { key: 'linesCleared', best: best.linesCleared, second: second.linesCleared };
+        if (best.aggregateHeight !== second.aggregateHeight) return { key: 'aggregateHeight', best: best.aggregateHeight, second: second.aggregateHeight };
+        if (best.bumpiness !== second.bumpiness) return { key: 'bumpiness', best: best.bumpiness, second: second.bumpiness };
+        if (weights.preferEdges && best.edgeDistance !== second.edgeDistance) return { key: 'edgeDistance', best: best.edgeDistance, second: second.edgeDistance };
+        if (best.score !== second.score) return { key: 'score', best: best.score, second: second.score };
+        return undefined;
     }
 
     private isBetterLexicographic(

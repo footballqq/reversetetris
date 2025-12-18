@@ -208,7 +208,7 @@ inputManager.on('toggleVersion', () => {
 
 inputManager.on('toggleAiLog', () => {
   ui.toggleAiLogPanel();
-  engine.setDecisionLogEnabled(ui.isAiLogVisible());
+  engine.setDecisionLogVisible(ui.isAiLogVisible());
   if (ui.isAiLogVisible()) {
     ui.setAiLog(engine.getLastDecisionLog());
   }
@@ -240,9 +240,12 @@ engine.on('linesCleared', (count: number) => {
   ui.updateHUD(engine.data.level, engine.data.linesCleared, engine.data.targetLines);
 
   // Confetti / Particles
-  // Center of screen
-  renderer.animator.spawnParticles(400, 300, '#ffcc00', 20 * count);
-  renderer.animator.spawnText(400, 300, `+${count} LINES`, '#fff');
+  // Near the grid center (not hard-coded screen coords)
+  const cx = renderer.layout.gridX + renderer.layout.gridWidth / 2;
+  const cy = renderer.layout.gridY + renderer.layout.gridHeight / 2;
+  renderer.animator.spawnParticles(cx, cy, '#ffcc00', 20 * count);
+  // Keep it compact; avoid a big "+N LINES" far away on wide screens.
+  renderer.animator.spawnText(cx, cy, `+${count}`, '#fff');
   renderer.animator.triggerShake(300);
 });
 
