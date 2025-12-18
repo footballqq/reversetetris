@@ -53,7 +53,7 @@ audioBtn.addEventListener('click', (e) => {
 // --- UI Event Bindings ---
 
 // Difficulty State (EASY, NORMAL, HARD)
-let currentDifficulty: 'EASY' | 'NORMAL' | 'HARD' = 'NORMAL';
+let currentDifficulty: 'EASY' | 'NORMAL' | 'HARD' | 'GOD' = 'NORMAL';
 
 ui.on('btn-start', 'click', () => {
   ui.show('game');
@@ -114,6 +114,12 @@ ui.on('diff-normal', 'click', () => {
 
 ui.on('diff-hard', 'click', () => {
   currentDifficulty = 'HARD';
+  updateDifficultyUI();
+  audio.playSelect();
+});
+
+ui.on('diff-god', 'click', () => {
+  currentDifficulty = 'GOD';
   updateDifficultyUI();
   audio.playSelect();
 });

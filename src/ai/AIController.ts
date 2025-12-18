@@ -67,6 +67,7 @@ export interface MoveResult {
     linesCleared: number;
     aggregateHeight: number;
     holes: number; // classic covered holes
+    holesCreated: number;
     blockades: number;
     bumpiness: number;
     gameOverAfterMove: boolean;
@@ -81,6 +82,7 @@ export class AIController {
         let bestLex: {
             gameOverAfterMove: boolean;
             holes: number;
+            holesCreated: number;
             blockades: number;
             wellSums: number;
             linesCleared: number;
@@ -131,6 +133,7 @@ export class AIController {
                 const candidate = {
                     gameOverAfterMove: evalResult.gameOverAfterMove,
                     holes: evalResult.holes,
+                    holesCreated: evalResult.holesCreated,
                     blockades: evalResult.blockades,
                     wellSums: evalResult.wellSums,
                     linesCleared: evalResult.linesCleared,
@@ -153,6 +156,7 @@ export class AIController {
                         linesCleared: evalResult.linesCleared,
                         aggregateHeight: evalResult.aggregateHeight,
                         holes: evalResult.holes,
+                        holesCreated: evalResult.holesCreated,
                         blockades: evalResult.blockades,
                         bumpiness: evalResult.bumpiness,
                         gameOverAfterMove: evalResult.gameOverAfterMove,
@@ -170,6 +174,7 @@ export class AIController {
         candidate: {
             gameOverAfterMove: boolean;
             holes: number;
+            holesCreated: number;
             blockades: number;
             wellSums: number;
             linesCleared: number;
@@ -180,6 +185,7 @@ export class AIController {
         best: {
             gameOverAfterMove: boolean;
             holes: number;
+            holesCreated: number;
             blockades: number;
             wellSums: number;
             linesCleared: number;
@@ -198,6 +204,9 @@ export class AIController {
 
         // 2) minimize holes
         if (candidate.holes !== best.holes) return candidate.holes < best.holes;
+
+        // 2.5) minimize newly created holes (prefer not to introduce new covered holes when outcome holes are equal)
+        if (candidate.holesCreated !== best.holesCreated) return candidate.holesCreated < best.holesCreated;
 
         // 3) minimize blockades
         if (candidate.blockades !== best.blockades) return candidate.blockades < best.blockades;
@@ -247,11 +256,13 @@ export class AIController {
         linesCleared: number;
         aggregateHeight: number;
         holes: number;
+        holesCreated: number;
         blockades: number;
         wellSums: number;
         bumpiness: number;
         gameOverAfterMove: boolean;
     } {
+        const holesBeforeMap = this.computeHoleMap(grid);
         const simGrid = grid.clone();
         const id = PIECE_TYPE_TO_ID[pieceType as keyof typeof PIECE_TYPE_TO_ID] || 1;
 
@@ -262,6 +273,8 @@ export class AIController {
         const aggregateHeight = simGrid.getAggregateHeight();
         const wellSums = simGrid.getWellSums();
         const holes = simGrid.countHoles();
+        const holesAfterMap = this.computeHoleMap(simGrid);
+        const holesCreated = this.countNewHoles(holesBeforeMap, holesAfterMap);
         const blockades = simGrid.countBlockades();
         const bumpiness = simGrid.getBumpiness();
         const gameOverAfterMove = simGrid.isGameOver();
@@ -284,6 +297,33 @@ export class AIController {
         score += wellSums * wellsWeight;
         score += bumpiness * weights.bumpinessWeight;
 
-        return { score, linesCleared: lines, aggregateHeight, holes, blockades, wellSums, bumpiness, gameOverAfterMove };
+        return { score, linesCleared: lines, aggregateHeight, holes, holesCreated, blockades, wellSums, bumpiness, gameOverAfterMove };
+    }
+
+    private computeHoleMap(grid: Grid): boolean[][] {
+        const map: boolean[][] = Array.from({ length: Grid.TOTAL_ROWS }, () => Array(Grid.WIDTH).fill(false));
+
+        for (let x = 0; x < Grid.WIDTH; x++) {
+            let blockFound = false;
+            for (let y = 0; y < Grid.TOTAL_ROWS; y++) {
+                if (grid.data[y][x] !== 0) {
+                    blockFound = true;
+                } else if (blockFound) {
+                    map[y][x] = true;
+                }
+            }
+        }
+
+        return map;
+    }
+
+    private countNewHoles(before: boolean[][], after: boolean[][]): number {
+        let created = 0;
+        for (let y = 0; y < Grid.TOTAL_ROWS; y++) {
+            for (let x = 0; x < Grid.WIDTH; x++) {
+                if (after[y][x] && !before[y][x]) created++;
+            }
+        }
+        return created;
     }
 }

@@ -50,6 +50,7 @@ export class UIManager {
                         <button id="diff-easy" class="btn diff-btn">简单</button>
                         <button id="diff-normal" class="btn diff-btn active">普通</button>
                         <button id="diff-hard" class="btn diff-btn">困难</button>
+                        <button id="diff-god" class="btn diff-btn">地狱</button>
                     </div>
                 </div>
             </div>

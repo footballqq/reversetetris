@@ -318,7 +318,20 @@ export class Renderer {
         level: number,
         lines: number,
         difficultyLevel?: string,
-        debug?: { wellSums: number; holes: number; blockades: number },
+        debug?: {
+            wellSums: number;
+            holes: number;
+            holesCreated: number;
+            blockades: number;
+            lastMove?: {
+                holes: number;
+                holesCreated: number;
+                blockades: number;
+                wellSums: number;
+                linesCleared: number;
+                score: number;
+            };
+        },
         version?: string
     ) {
         this.ctx.textAlign = 'left';
@@ -349,6 +362,9 @@ export class Renderer {
             if (debug) {
                 this.drawText("WELLS", startX + 420, startY, 12, '#aaa');
                 this.drawText(`${debug.wellSums}`, startX + 420, startY + 20, 18, '#fff');
+
+                this.drawText("HOLES", startX + 470, startY, 12, '#aaa');
+                this.drawText(`${debug.holes}`, startX + 470, startY + 20, 18, '#fff');
             }
 
             if (version) {
@@ -359,6 +375,7 @@ export class Renderer {
             // Landscape: Right side
             startX = this.layout.gridX + this.layout.gridWidth + 20;
             startY = this.layout.gridY;
+            const panelBottomY = this.layout.gridY + this.layout.gridHeight;
 
             this.drawText("SCORE", startX, startY + 20, 14, '#aaa');
             this.drawText(`${score}`, startX, startY + 50, 24, '#fff');
@@ -376,22 +393,26 @@ export class Renderer {
             }
 
             if (debug) {
-                this.drawText("WELL SUMS", startX, startY + 320, 14, '#aaa');
-                this.drawText(`${debug.wellSums}`, startX, startY + 350, 22, '#fff');
+                const y0 = startY + 320;
+                this.drawText(`HOLES ${debug.holes} (+${debug.holesCreated})`, startX, y0, 14, '#aaa');
+                this.drawText(`BLOCK ${debug.blockades}   WELLS ${debug.wellSums}`, startX, y0 + 24, 14, '#aaa');
 
-                // Classic covered holes can be useful to debug "隔空洞" issues.
-                this.drawText("HOLES", startX, startY + 390, 14, '#aaa');
-                this.drawText(`${debug.holes}`, startX, startY + 420, 22, '#fff');
-
-                this.drawText("BLOCKADES", startX, startY + 460, 14, '#aaa');
-                this.drawText(`${debug.blockades}`, startX, startY + 490, 22, '#fff');
-
-                this.drawText("DEBUG: D", startX, startY + 525, 12, '#666');
-                this.drawText("VERSION: V", startX, startY + 545, 12, '#666');
-            } else if (version) {
-                // Non-debug minimal version marker.
-                this.drawText(version, startX, startY + 320, 12, '#666');
+                if (debug.lastMove) {
+                    this.drawText(
+                        `PRED H${debug.lastMove.holes} (+${debug.lastMove.holesCreated}) B${debug.lastMove.blockades} W${debug.lastMove.wellSums} L${debug.lastMove.linesCleared}`,
+                        startX,
+                        y0 + 48,
+                        12,
+                        '#888'
+                    );
+                }
             }
+
+            // Version/debug hints: always at bottom of the right panel so they never overlap with debug lines.
+            if (version) {
+                this.drawText(version, startX, panelBottomY - 18, 12, '#666');
+            }
+            this.drawText("D:DEBUG  V:VERSION", startX, panelBottomY - 2, 12, '#555');
         }
     }
 

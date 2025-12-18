@@ -120,6 +120,7 @@ describe('AIController', () => {
         expect(move).not.toBeNull();
         expect(move?.wellSums).toBe(0);
         expect(move?.holes).toBe(0);
+        expect(move?.holesCreated).toBe(0);
     });
 
     it('should return null if no valid move', () => {

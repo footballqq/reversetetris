@@ -2,7 +2,7 @@
 import { Grid } from './Grid';
 import { Piece } from './Piece';
 import { PieceFactory } from './PieceFactory';
-import { AIController, AIWeights, AI_DIFFICULTY } from '@/ai/AIController';
+import { AIController, AIWeights, AI_DIFFICULTY, MoveResult } from '@/ai/AIController';
 import { Renderer } from '@/render/Renderer';
 import { PIECE_TYPE_TO_ID } from './PieceData';
 import { LevelGenerator } from '@/levels/LevelGenerator';
@@ -46,6 +46,7 @@ export class GameEngine {
     public debugHudEnabled: boolean = false;
     public versionHudEnabled: boolean = true;
     public appVersion: string = '';
+    private difficultyOverride: { level: string; weights: AIWeights; speedMs: number } | null = null;
 
     // AI Animation
     private aiTimer: number = 0;
@@ -53,6 +54,7 @@ export class GameEngine {
     private moveQueue: { type: 'rotate' | 'move' | 'drop', value: number }[] = [];
     private animationTimer: number = 0;
     // private readonly ANIMATION_STEP_DELAY = 100; // Adjust based on speed?
+    private lastAiMove: MoveResult | null = null;
 
     // Events
     private listeners: Record<string, EventCallback[]> = {};
@@ -82,21 +84,36 @@ export class GameEngine {
         }
     }
 
-    public setDifficulty(difficulty: 'EASY' | 'NORMAL' | 'HARD') {
+    public setDifficulty(difficulty: 'EASY' | 'NORMAL' | 'HARD' | 'GOD') {
         this.data.aiDifficulty = AI_DIFFICULTY[difficulty];
         this.data.aiDifficultyLevel = difficulty.toLowerCase();
+
         // Also adjust AI speed based on difficulty
+        let speedMs = 500;
         switch (difficulty) {
             case 'EASY':
                 this.currentAiSpeed = 800; // Slower
+                speedMs = 800;
                 break;
             case 'NORMAL':
                 this.currentAiSpeed = 500;
+                speedMs = 500;
                 break;
             case 'HARD':
                 this.currentAiSpeed = 300; // Faster
+                speedMs = 300;
+                break;
+            case 'GOD':
+                this.currentAiSpeed = 200;
+                speedMs = 200;
                 break;
         }
+
+        this.difficultyOverride = {
+            level: this.data.aiDifficultyLevel,
+            weights: this.data.aiDifficulty,
+            speedMs,
+        };
     }
 
     public start(levelConfig?: LevelConfig) {
@@ -111,10 +128,18 @@ export class GameEngine {
     public loadLevel(config: LevelConfig) {
         this.data.level = config.id;
         this.data.targetLines = config.targetLines;
-        this.data.aiDifficulty = config.aiWeights;
-        this.data.aiDifficultyLevel = config.aiDifficultyLevel;
-        // Apply AI speed
-        this.currentAiSpeed = config.aiSpeed;
+
+        // Apply AI difficulty (level defaults), but allow UI-selected difficulty override.
+        if (this.difficultyOverride) {
+            this.data.aiDifficulty = this.difficultyOverride.weights;
+            this.data.aiDifficultyLevel = this.difficultyOverride.level;
+            this.currentAiSpeed = this.difficultyOverride.speedMs;
+        } else {
+            this.data.aiDifficulty = config.aiWeights;
+            this.data.aiDifficultyLevel = config.aiDifficultyLevel;
+            // Apply AI speed
+            this.currentAiSpeed = config.aiSpeed;
+        }
 
         // Reset Grid
         this.grid = new Grid(config.initialGrid);
@@ -155,11 +180,13 @@ export class GameEngine {
         const move = this.ai.findBestMove(this.grid, this.currentPiece, this.data.aiDifficulty);
 
         if (move) {
+            this.lastAiMove = move;
             this.generateMoveQueue(move);
             this.state = GameState.AI_ANIMATING;
             this.animationTimer = 0;
         } else {
             // AI Failed - Top Out
+            this.lastAiMove = null;
             this.state = GameState.WIN;
             this.emit('gameOver', 'win');
         }
@@ -299,7 +326,22 @@ export class GameEngine {
             this.data.linesCleared,
             this.data.aiDifficultyLevel,
             this.debugHudEnabled
-                ? { wellSums: this.grid.getWellSums(), holes: this.grid.countHoles(), blockades: this.grid.countBlockades() }
+                ? {
+                    wellSums: this.grid.getWellSums(),
+                    holes: this.grid.countHoles(),
+                    blockades: this.grid.countBlockades(),
+                    holesCreated: this.lastAiMove?.holesCreated ?? 0,
+                    lastMove: this.lastAiMove
+                        ? {
+                            holes: this.lastAiMove.holes,
+                            holesCreated: this.lastAiMove.holesCreated,
+                            blockades: this.lastAiMove.blockades,
+                            wellSums: this.lastAiMove.wellSums,
+                            linesCleared: this.lastAiMove.linesCleared,
+                            score: this.lastAiMove.score,
+                        }
+                        : undefined,
+                }
                 : undefined,
             this.versionHudEnabled ? this.appVersion : undefined
         );
