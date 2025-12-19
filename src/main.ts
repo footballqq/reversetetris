@@ -126,45 +126,39 @@ type RunSummary = {
   difficulty: string;
 };
 
-function pickTagline(taglines: string[], seed: number) {
-  return taglines[Math.abs(seed) % taglines.length];
-}
-
 function buildShareText(summary: RunSummary) {
   const url = `${location.origin}${location.pathname}`;
-  const seed = summary.level * 97 + summary.linesCleared * 13 + summary.piecesPlaced * 7;
+  const normalizedDifficulty =
+    summary.difficulty.length > 0 ? summary.difficulty[0].toUpperCase() + summary.difficulty.slice(1) : summary.difficulty;
 
-  const winTaglines = [
-    '电脑：我裂开了。',
-    '出口气成功，神清气爽。',
-    '这就是人类的策略含金量。',
-    'AI 也顶不住这波投喂。',
-  ];
+  const winLine = '直接把电脑**顶飞**！';
+  const loseLine = '差点把电脑顶飞…但它苟住了！';
 
-  const loseTaglines = [
-    '这 AI 也太能苟了…',
-    '差一点就把它送走了。',
-    '不服，下一把继续狠狠干它。',
-    '它活下来了，但我不会认输。',
-  ];
+  const text = [
+    `🎮🔥 **做了个反向 Tetris 小游戏！** `,
+    `玩家负责**选方块**，电脑负责**摆放**，主打一个——折磨电脑 🤖💥`,
+    ``,
+    `🚀 **Reverse Tetris · 第 ${summary.level} 关**`,
+    summary.result === 'win' ? winLine : loseLine,
+    `🧱 用块数：**${summary.piecesPlaced}**`,
+    `🧠 电脑只消了：**${summary.linesCleared} / ${summary.targetLines} 行**`,
+    `⚙️ 难度：**${normalizedDifficulty}**`,
+    ``,
+    `😤➡️😌 出了口气，整个人都神清气爽了！`,
+    ``,
+    `👉 **你也来试试暴打它解压吧：**`,
+    `🔗 ${url}  `,
+    `🔗 复制到浏览器进行游戏`,
+    ``,
+    `⚠️ 温馨提醒：`,
+    ``,
+    `* 💀 **千万别手贱挑战「地狱电脑」**`,
+    `* 📱 如果画面太小，记得在手机浏览器里**关闭「电脑模式」**`,
+    ``,
+    `来，看你能把电脑虐到第几关 😈🎉`,
+  ].join('\n');
 
-  const header =
-    summary.result === 'win'
-      ? `我在 Reverse Tetris 第${summary.level}关把电脑顶飞了！`
-      : `我在 Reverse Tetris 第${summary.level}关被电脑苟住了…`;
-
-  const stats =
-    summary.result === 'win'
-      ? `用块数：${summary.piecesPlaced}｜它只消了：${summary.linesCleared}/${summary.targetLines} 行｜难度：${summary.difficulty}`
-      : `我喂了：${summary.piecesPlaced} 块｜它消了：${summary.linesCleared}/${summary.targetLines} 行｜难度：${summary.difficulty}`;
-
-  const tagline = pickTagline(summary.result === 'win' ? winTaglines : loseTaglines, seed);
-  const cta = `你也来试试击败它出口气：`;
-
-  const shareText = `${header}\n${stats}\n${tagline}\n\n${cta}`;
-  const copyText = `${shareText}${url}`;
-
-  return { title: 'Reverse Tetris', shareText, copyText, url };
+  return { title: 'Reverse Tetris', shareText: text, copyText: text, url };
 }
 
 async function shareRunSummary(summary: RunSummary) {
@@ -172,11 +166,10 @@ async function shareRunSummary(summary: RunSummary) {
 
   if (typeof navigator !== 'undefined' && 'share' in navigator) {
     try {
-      // Some platforms ignore `text` if `url` exists, so include both.
-      await (navigator as unknown as { share: (data: { title: string; text: string; url: string }) => Promise<void> }).share({
+      // Avoid passing `url` to prevent some share targets from appending it again.
+      await (navigator as unknown as { share: (data: { title: string; text: string }) => Promise<void> }).share({
         title: payload.title,
         text: payload.shareText,
-        url: payload.url,
       });
       return;
     } catch {
