@@ -135,9 +135,14 @@ export class AIController {
             const p = piece.clone();
             p.setRotation(r);
             const blocks = p.getBlocks();
+            const { minX, maxX } = this.getBlockXSpan(blocks);
 
-            // Find valid X range
-            for (let x = -2; x < Grid.WIDTH + 2; x++) {
+            // Find valid X range based on the piece's horizontal span.
+            // We only iterate offsets that can possibly fit in-bounds (grid.isValidPosition enforces bounds too,
+            // but this avoids missing wide pieces and reduces wasted checks).
+            const xStart = -minX;
+            const xEnd = (Grid.WIDTH - 1) - maxX;
+            for (let x = xStart; x <= xEnd; x++) {
                 // gemini: 2025-12-18 Fixed: Start search from row 0 to find any valid landing.
                 // Some pieces (CROSS, etc.) have blocks with negative Y offsets.
                 // We removed the spawn check because it was too restrictive for special pieces.
@@ -491,5 +496,16 @@ export class AIController {
             }
         }
         return created;
+    }
+
+    private getBlockXSpan(blocks: { x: number; y: number }[]): { minX: number; maxX: number } {
+        let minX = Infinity;
+        let maxX = -Infinity;
+        for (const b of blocks) {
+            if (b.x < minX) minX = b.x;
+            if (b.x > maxX) maxX = b.x;
+        }
+        if (minX === Infinity || maxX === -Infinity) return { minX: 0, maxX: 0 };
+        return { minX, maxX };
     }
 }
