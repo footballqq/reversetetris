@@ -292,9 +292,6 @@ export class Renderer {
     }
 
     public drawPieceSelector(pieces: Piece[], selectedIndex: number) {
-        // gemini: 2025-12-18 Significantly scale down to prevent any clipping of large pieces.
-        const selectorCellSize = Math.min(14, this.layout.cellSize * 0.55);
-
         // Draw Container Box
         this.ctx.strokeStyle = '#fff';
         this.ctx.lineWidth = 2;
@@ -316,7 +313,6 @@ export class Renderer {
 
         pieces.forEach((piece, index) => {
             const cx = this.layout.selectionX + index * slotWidth + slotWidth / 2;
-            const cy = this.layout.selectionY + this.layout.selectionHeight / 2;
 
             // Highlight selected
             if (index === selectedIndex) {
@@ -334,20 +330,48 @@ export class Renderer {
             const color = piece.getColor();
 
             // Calculate bounding box for centering
-            let minX = 0, maxX = 0, minY = 0, maxY = 0;
-            blocks.forEach(b => {
+            let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+            for (const b of blocks) {
                 minX = Math.min(minX, b.x);
                 maxX = Math.max(maxX, b.x);
                 minY = Math.min(minY, b.y);
                 maxY = Math.max(maxY, b.y);
-            });
-            const pWidth = (maxX - minX + 1) * selectorCellSize;
-            const pHeight = (maxY - minY + 1) * selectorCellSize;
-            const offsetX = cx - pWidth / 2 - minX * selectorCellSize;
-            const offsetY = cy - pHeight / 2 - minY * selectorCellSize;
+            }
+
+            const widthBlocks = (maxX - minX + 1) || 1;
+            const heightBlocks = (maxY - minY + 1) || 1;
+
+            // Fit-to-slot sizing to prevent any bleed/clipping on narrow screens or wide pieces.
+            const padX = 6;
+            const padY = 6;
+            const bottomLabelPad = 16; // reserve space for "1/2/3"
+            const availableW = Math.max(10, slotWidth - padX * 2);
+            const availableH = Math.max(10, this.layout.selectionHeight - padY * 2 - bottomLabelPad);
+
+            const maxCell = Math.min(14, this.layout.cellSize * 0.55);
+            const selectorCellSize = Math.max(
+                4,
+                Math.min(maxCell, Math.floor(availableW / widthBlocks), Math.floor(availableH / heightBlocks))
+            );
+
+            const pWidth = widthBlocks * selectorCellSize;
+            const pHeight = heightBlocks * selectorCellSize;
+
+            // Center within the slot
+            const slotLeft = this.layout.selectionX + index * slotWidth;
+            const slotTop = this.layout.selectionY;
+            const slotCenterX = slotLeft + slotWidth / 2;
+            const slotCenterY = slotTop + (this.layout.selectionHeight - bottomLabelPad) / 2;
+            const offsetX = slotCenterX - pWidth / 2 - minX * selectorCellSize;
+            const offsetY = slotCenterY - pHeight / 2 - minY * selectorCellSize;
+
+            // Clip to slot area so nothing can overlap neighbors or the audio/menu buttons.
+            this.ctx.save();
+            this.ctx.beginPath();
+            this.ctx.rect(slotLeft + 1, slotTop + 1, slotWidth - 2, this.layout.selectionHeight - 2);
+            this.ctx.clip();
 
             for (const block of blocks) {
-                // Use a smaller version of drawCell logic or local sizing
                 const bx = offsetX + block.x * selectorCellSize;
                 const by = offsetY + block.y * selectorCellSize;
                 const size = selectorCellSize - 1;
@@ -359,6 +383,8 @@ export class Renderer {
                 this.ctx.fillStyle = 'rgba(255,255,255,0.2)';
                 this.ctx.fillRect(bx, by, size, size / 3);
             }
+
+            this.ctx.restore();
 
             // Key Hint
             this.ctx.fillStyle = '#888';
