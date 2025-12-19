@@ -123,7 +123,7 @@ describe('AIController', () => {
         expect(move?.holesCreated).toBe(0);
     });
 
-    it('should return null if no valid move', () => {
+    it('should return a TOP_OUT move if no valid move', () => {
         const grid = new Grid();
         const ai = new AIController();
 
@@ -139,7 +139,8 @@ describe('AIController', () => {
         const piece = new Piece(PieceType.O);
         const move = ai.findBestMove(grid, piece, AI_DIFFICULTY.NORMAL);
 
-        // Should be null because start position (y=0) is blocked
-        expect(move).toBeNull();
+        // We still return the "best" move, but it should be marked as a forced top-out.
+        expect(move).not.toBeNull();
+        expect(move?.gameOverAfterMove).toBe(true);
     });
 });

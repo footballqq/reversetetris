@@ -347,6 +347,7 @@ export class GameEngine {
         const blocks = this.currentPiece.getBlocks();
         const spawnY = this.grid.getSpawnY();
         let finalY = spawnY;
+        let foundValidPosition = false;
         // gemini: 2025-12-18 SEARCH THROUGH CEILING: Search from spawnY downwards.
         // We ignore the red ceiling during the search so large pieces (like CROSS) can pass through
         // if they are initially overlapping. The game-over check (isPieceTouchingCeiling)
@@ -354,9 +355,18 @@ export class GameEngine {
         for (let dy = spawnY; dy < Grid.TOTAL_ROWS; dy++) {
             if (this.grid.isValidPosition(blocks, this.activePiecePosition.x, dy, { ignoreCeiling: true })) {
                 finalY = dy;
+                foundValidPosition = true;
             } else {
                 break;
             }
+        }
+
+        // If the spawn position is blocked, the AI cannot place the piece at all -> top out.
+        if (!foundValidPosition) {
+            this.state = GameState.WIN;
+            SaveManager.updateStats(this.data.level, this.data.linesCleared * 100, this.data.linesCleared, this.data.piecesPlaced, this.data.aiDifficultyLevel, true);
+            this.emit('gameOver', 'win');
+            return;
         }
 
         this.activePiecePosition.y = finalY; // Visual snap

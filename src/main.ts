@@ -159,9 +159,12 @@ function buildShareText(summary: RunSummary) {
       : `我喂了：${summary.piecesPlaced} 块｜它消了：${summary.linesCleared}/${summary.targetLines} 行｜难度：${summary.difficulty}`;
 
   const tagline = pickTagline(summary.result === 'win' ? winTaglines : loseTaglines, seed);
-  const cta = `你也来试试击败它出口气：${url}`;
+  const cta = `你也来试试击败它出口气：`;
 
-  return { title: 'Reverse Tetris', text: `${header}\n${stats}\n${tagline}\n\n${cta}`, url };
+  const shareText = `${header}\n${stats}\n${tagline}\n\n${cta}`;
+  const copyText = `${shareText}${url}`;
+
+  return { title: 'Reverse Tetris', shareText, copyText, url };
 }
 
 async function shareRunSummary(summary: RunSummary) {
@@ -172,7 +175,7 @@ async function shareRunSummary(summary: RunSummary) {
       // Some platforms ignore `text` if `url` exists, so include both.
       await (navigator as unknown as { share: (data: { title: string; text: string; url: string }) => Promise<void> }).share({
         title: payload.title,
-        text: payload.text,
+        text: payload.shareText,
         url: payload.url,
       });
       return;
@@ -183,11 +186,11 @@ async function shareRunSummary(summary: RunSummary) {
 
   try {
     if (!navigator.clipboard?.writeText) throw new Error('Clipboard not available');
-    await navigator.clipboard.writeText(payload.text);
+    await navigator.clipboard.writeText(payload.copyText);
     alert('分享文案已复制，可以粘贴到微信/朋友圈/群聊。');
   } catch {
     // Worst-case fallback.
-    prompt('复制分享文案（长按全选复制）', payload.text);
+    prompt('复制分享文案（长按全选复制）', payload.copyText);
   }
 }
 
