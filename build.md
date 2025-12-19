@@ -114,3 +114,23 @@ https://circlecal.pages.dev/reversetetris/
   - Output directory：`dist`
 
 注意：这种方式默认部署在站点根路径（`/`）。如果你必须保留在 `/reversetetris/` 子路径，需要通过路由/多项目拆分/或者改为固定 `base: '/reversetetris/'` 的发布策略（相对路径方案 `base: './'` 通常最省心）。
+
+
+你这个现象基本不是“Cloudflare Pages 没升级”，而是你部署上去的 dist 本身还是旧构建。
+
+我在你当前仓库里看到：
+
+你现在代码的 git HEAD 是 803a98a
+但 ...js 里内嵌的版本是 v0.0.0+46772d2（也就是 dist 是在更早的 commit 46772d2 打出来的）
+你线上 https://circlecal.pages.dev/reversetetris/ 返回的 index.html 也正好引用同一组 hash（index-CnaRI7bd.js），说明线上确实在跑“旧 dist”，不是手机渲染问题
+怎么修
+
+每次改完代码后，先在这个仓库重新打包：npm run build（让 dist/ 变成最新）
+再把新的 dist/ 内容同步到你那个“静态仓库”的 reversetetris/ 目录，并且提交/推送，让 Pages 触发更新
+确保覆盖了 index.html（不然永远引用旧的 assets）
+同步脚本如果是“增量拷贝”，最好先清掉目标目录旧文件再复制，避免混用
+怎么快速确认线上到底是不是最新
+
+打开线上引用的 JS（从页面源码里抄）：index-*.js，搜 appVersion="v0.0.0+，看后面的 git sha 是否等于你期望的最新 commit
+或者本地也搜同样字符串：index-*.js
+如果你把 Pages 改成“直接关联本项目仓库自动构建”，那就确认 Pages 的 Build command 是 npm run build、Output directory 是 dist，否则它只会一直托管你提交/同步过去的旧静态文件。

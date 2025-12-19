@@ -91,7 +91,9 @@ export class UIManager {
         this.overlays.win = this.createOverlay('win-overlay', `
             <h1 class="win">VICTORY!</h1>
             <p>The AI Topped Out.</p>
+            <p id="win-stats" class="result-stats"></p>
             <button id="btn-next-level" class="btn primary">NEXT LEVEL</button>
+            <button id="btn-share-win" class="btn">SHARE</button>
             <button id="btn-menu-win" class="btn">MAIN MENU</button>
         `);
 
@@ -99,7 +101,9 @@ export class UIManager {
         this.overlays.lose = this.createOverlay('lose-overlay', `
             <h1 class="lose">DEFEAT</h1>
             <p>The AI Survived your attacks.</p>
+            <p id="lose-stats" class="result-stats"></p>
             <button id="btn-retry" class="btn primary">RETRY</button>
+            <button id="btn-share-lose" class="btn">SHARE</button>
             <button id="btn-menu-lose" class="btn">MAIN MENU</button>
         `);
 

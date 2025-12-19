@@ -7,13 +7,203 @@ import { AudioManager } from '@/audio/AudioManager';
 import { UIManager } from '@/ui/UIManager';
 import { LevelGenerator } from '@/levels/LevelGenerator';
 import { SaveManager } from '@/core/SaveManager';
+import { GameState } from '@/core/GameEngine';
+
+const VIEWPORT_WARNING_DISMISS_KEY = 'reversetetris:dismissViewportWarning';
+
+function setupViewportModeWarning() {
+  const isTouchDevice = () =>
+    (typeof navigator !== 'undefined' && navigator.maxTouchPoints > 0) ||
+    (typeof window !== 'undefined' && 'ontouchstart' in window);
+
+  const safeLocalStorageGet = (key: string): string | null => {
+    try {
+      return localStorage.getItem(key);
+    } catch {
+      return null;
+    }
+  };
+
+  const safeLocalStorageSet = (key: string, value: string) => {
+    try {
+      localStorage.setItem(key, value);
+    } catch {
+      // ignore
+    }
+  };
+
+  if (!isTouchDevice() || safeLocalStorageGet(VIEWPORT_WARNING_DISMISS_KEY) === '1') {
+    return;
+  }
+
+  let banner: HTMLDivElement | null = null;
+  let scheduled = false;
+
+  const computeShouldWarn = () => {
+    const visualWidth = window.visualViewport?.width ?? window.innerWidth;
+    const layoutWidth = window.innerWidth;
+    const screenWidth = window.screen?.width ?? visualWidth;
+
+    // Mobile "Request desktop site" often makes layout viewport much wider than visual viewport.
+    const viewportRatio = visualWidth > 0 ? layoutWidth / visualWidth : 1;
+
+    // Heuristics: touch device + small screen, but huge layout viewport (or ratio large).
+    const smallScreen = Math.min(visualWidth, screenWidth) <= 520;
+    const hugeLayoutViewport = layoutWidth >= 900 || viewportRatio >= 1.25;
+
+    return smallScreen && hugeLayoutViewport;
+  };
+
+  const ensureBanner = () => {
+    if (banner) return banner;
+
+    banner = document.createElement('div');
+    banner.className = 'viewport-warning';
+    banner.innerHTML = `
+      <div class="viewport-warning__content" role="status" aria-live="polite">
+        <div class="viewport-warning__text">
+          检测到可能启用了「桌面版站点」或非 100% 缩放，布局可能异常。请关闭桌面版站点并把缩放调回 100%。
+        </div>
+        <div class="viewport-warning__actions">
+          <button type="button" class="viewport-warning__btn" data-action="dismiss">关闭</button>
+          <button type="button" class="viewport-warning__btn viewport-warning__btn--secondary" data-action="dontshow">不再提示</button>
+        </div>
+      </div>
+    `;
+
+    banner.addEventListener('click', (e) => {
+      const target = e.target as HTMLElement | null;
+      const btn = target?.closest<HTMLButtonElement>('button[data-action]');
+      const action = btn?.dataset.action;
+      if (!action) return;
+
+      if (action === 'dontshow') {
+        safeLocalStorageSet(VIEWPORT_WARNING_DISMISS_KEY, '1');
+      }
+
+      hide();
+    });
+
+    document.body.appendChild(banner);
+    return banner;
+  };
+
+  const show = () => {
+    const el = ensureBanner();
+    el.style.display = 'block';
+    document.documentElement.style.setProperty('--viewport-warning-offset', '56px');
+  };
+
+  const hide = () => {
+    if (banner) banner.style.display = 'none';
+    document.documentElement.style.removeProperty('--viewport-warning-offset');
+  };
+
+  const update = () => {
+    scheduled = false;
+    if (computeShouldWarn()) show();
+    else hide();
+  };
+
+  const scheduleUpdate = () => {
+    if (scheduled) return;
+    scheduled = true;
+    requestAnimationFrame(update);
+  };
+
+  window.addEventListener('resize', scheduleUpdate);
+  window.visualViewport?.addEventListener('resize', scheduleUpdate);
+  scheduleUpdate();
+}
+
+type GameResult = 'win' | 'lose';
+type RunSummary = {
+  result: GameResult;
+  level: number;
+  linesCleared: number;
+  targetLines: number;
+  piecesPlaced: number;
+  difficulty: string;
+};
+
+function pickTagline(taglines: string[], seed: number) {
+  return taglines[Math.abs(seed) % taglines.length];
+}
+
+function buildShareText(summary: RunSummary) {
+  const url = `${location.origin}${location.pathname}`;
+  const seed = summary.level * 97 + summary.linesCleared * 13 + summary.piecesPlaced * 7;
+
+  const winTaglines = [
+    '电脑：我裂开了。',
+    '出口气成功，神清气爽。',
+    '这就是人类的策略含金量。',
+    'AI 也顶不住这波投喂。',
+  ];
+
+  const loseTaglines = [
+    '这 AI 也太能苟了…',
+    '差一点就把它送走了。',
+    '不服，下一把继续狠狠干它。',
+    '它活下来了，但我不会认输。',
+  ];
+
+  const header =
+    summary.result === 'win'
+      ? `我在 Reverse Tetris 第${summary.level}关把电脑顶飞了！`
+      : `我在 Reverse Tetris 第${summary.level}关被电脑苟住了…`;
+
+  const stats =
+    summary.result === 'win'
+      ? `用块数：${summary.piecesPlaced}｜它只消了：${summary.linesCleared}/${summary.targetLines} 行｜难度：${summary.difficulty}`
+      : `我喂了：${summary.piecesPlaced} 块｜它消了：${summary.linesCleared}/${summary.targetLines} 行｜难度：${summary.difficulty}`;
+
+  const tagline = pickTagline(summary.result === 'win' ? winTaglines : loseTaglines, seed);
+  const cta = `你也来试试击败它出口气：${url}`;
+
+  return { title: 'Reverse Tetris', text: `${header}\n${stats}\n${tagline}\n\n${cta}`, url };
+}
+
+async function shareRunSummary(summary: RunSummary) {
+  const payload = buildShareText(summary);
+
+  if (typeof navigator !== 'undefined' && 'share' in navigator) {
+    try {
+      // Some platforms ignore `text` if `url` exists, so include both.
+      await (navigator as unknown as { share: (data: { title: string; text: string; url: string }) => Promise<void> }).share({
+        title: payload.title,
+        text: payload.text,
+        url: payload.url,
+      });
+      return;
+    } catch {
+      // User cancelled or share failed; fall back to copy.
+    }
+  }
+
+  try {
+    if (!navigator.clipboard?.writeText) throw new Error('Clipboard not available');
+    await navigator.clipboard.writeText(payload.text);
+    alert('分享文案已复制，可以粘贴到微信/朋友圈/群聊。');
+  } catch {
+    // Worst-case fallback.
+    prompt('复制分享文案（长按全选复制）', payload.text);
+  }
+}
+
+function isPauseEligibleState(state: GameState) {
+  return state === GameState.SELECTING || state === GameState.AI_PLAYING || state === GameState.AI_ANIMATING;
+}
 
 // App setup is handled by UIManager for overlays, but we need the canvas container
 const app = document.querySelector<HTMLDivElement>('#app')!;
 app.innerHTML = `
   <canvas id="game-canvas" width="800" height="600"></canvas>
+  <button id="menu-btn" aria-label="Menu">☰</button>
   <button id="audio-btn">🔇</button>
 `;
+
+setupViewportModeWarning();
 
 const canvas = document.getElementById('game-canvas') as HTMLCanvasElement;
 const renderer = new Renderer(canvas);
@@ -22,6 +212,17 @@ engine.appVersion = `v${__APP_VERSION__}+${__GIT_SHA__}`;
 const inputManager = new InputManager(canvas, renderer);
 const audio = new AudioManager();
 const ui = new UIManager();
+
+const menuBtn = document.getElementById('menu-btn')!;
+const openPauseMenu = () => {
+  if (!isPauseEligibleState(engine.state)) return;
+  ui.show('pause');
+  audio.playSelect();
+};
+menuBtn.addEventListener('click', (e) => {
+  e.stopPropagation();
+  openPauseMenu();
+});
 
 // Audio Init on first interaction
 const initAudio = () => {
@@ -174,10 +375,24 @@ ui.on('btn-menu-win', 'click', () => {
   audio.playSelect();
 });
 
+ui.on('btn-share-win', 'click', async () => {
+  audio.playSelect();
+  if (lastRunSummary) {
+    await shareRunSummary(lastRunSummary);
+  }
+});
+
 ui.on('btn-retry', 'click', () => {
   engine.loadLevel(LevelGenerator.generateLevel(engine.data.level));
   ui.show('game');
   audio.playSelect();
+});
+
+ui.on('btn-share-lose', 'click', async () => {
+  audio.playSelect();
+  if (lastRunSummary) {
+    await shareRunSummary(lastRunSummary);
+  }
 });
 
 ui.on('btn-menu-lose', 'click', () => {
@@ -207,9 +422,7 @@ inputManager.on('pause', () => {
 });
 
 inputManager.on('menu', () => {
-  if (engine.state === 0) return; // Already in menu (enum 0 is MENU)
-  ui.show('pause'); // Esc triggers pause menu usually, not direct main menu
-  audio.playSelect();
+  openPauseMenu();
 });
 
 inputManager.on('toggleDebug', () => {
@@ -267,8 +480,28 @@ engine.on('levelLoaded', (config: any) => {
   ui.updateHUD(config.id, 0, config.targetLines);
 });
 
+let lastRunSummary: RunSummary | null = null;
+
 engine.on('gameOver', (result: 'win' | 'lose') => {
   audio.playGameOver(result === 'win');
+
+  lastRunSummary = {
+    result,
+    level: engine.data.level,
+    linesCleared: engine.data.linesCleared,
+    targetLines: engine.data.targetLines,
+    piecesPlaced: engine.data.piecesPlaced,
+    difficulty: engine.data.aiDifficultyLevel,
+  };
+
+  const statsText =
+    result === 'win'
+      ? `Blocks: ${lastRunSummary.piecesPlaced} • AI Lines: ${lastRunSummary.linesCleared}/${lastRunSummary.targetLines}`
+      : `Blocks: ${lastRunSummary.piecesPlaced} • AI Lines: ${lastRunSummary.linesCleared}/${lastRunSummary.targetLines}`;
+
+  const statsEl = document.getElementById(result === 'win' ? 'win-stats' : 'lose-stats');
+  if (statsEl) statsEl.textContent = statsText;
+
   if (result === 'win') {
     ui.show('win');
   } else {
