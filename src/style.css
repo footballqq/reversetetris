@@ -379,6 +379,7 @@ canvas {
   display: flex;
   gap: 10px;
   justify-content: center;
+  flex-wrap: wrap;
 }
 
 .diff-btn {
@@ -477,6 +478,18 @@ canvas {
     padding: 0.8rem 1.5rem;
     font-size: 1rem;
     min-width: 160px;
+  }
+
+  /* Settings: make 4 difficulty buttons fit on phones */
+  .difficulty-btns {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .diff-btn {
+    flex: 1 1 calc(50% - 10px);
+    max-width: calc(50% - 10px);
+    min-width: 0;
   }
 
   .level-grid {
